@@ -2,9 +2,13 @@ import argparse
 import imutils
 import cv2
 import numpy as np
+import ntpath
+import os
 
 BODER_PADDING = 10 # Additional padding in pixels to add to the page for handling unclosed panels.
 MASK_SIZE = 15
+MAX_PANELS_IN_PAGE = 15 #9
+
 
 '''
 Uses the image histogram to evaluate if the 
@@ -39,13 +43,41 @@ def hasDarkBorders(image, threshold):
 			maxColorIndex = colorIndex
 			maxColorValue = colorValue
 		
-	print hist
+	#print hist
 	
 	print maxColorIndex
 	hasDarkBordered = maxColorIndex < threshold
 	
 	return hasDarkBordered, maxColorIndex
 
+'''
+Use the grays cale image histogram to check if 
+the image is largely bright. 
+@param theshImg binary image
+@param percent of pixels needed in order to consider image bright. 0-100
+'''
+def isBrightPanel(theshImg, threshold):
+	hist = cv2.calcHist([theshImg],[0],None,[256],[0,256])
+	#cv2.imshow("Image", mask)
+	#cv2.waitKey(0)
+
+	# Find the most common color among all corners
+	maxColorIndex = 0
+	maxColorValue = -1
+	for colorIndex, colorValue in enumerate(hist) :
+		if colorValue > maxColorValue:
+			maxColorIndex = colorIndex
+			maxColorValue = colorValue
+		
+	#print hist
+	
+	maxColorPercent = (maxColorValue/(theshImg.shape[0]*theshImg.shape[1]))*100
+	isBrightPanel = maxColorIndex > 0 and maxColorPercent > threshold
+	
+	print maxColorIndex, isBrightPanel, maxColorPercent
+	
+	return isBrightPanel, maxColorIndex
+	
 '''
 Helper method to evaluate if the layout of panels is valid.
 List of tuples of (rect, contour)
@@ -76,7 +108,7 @@ def findComicPanels(image):
 	
 	# Size of the border to add to the comic page to handle unclosed panels.
 	border_padding = BODER_PADDING
-	resized = imutils.resize(image, width=300)
+	resized = imutils.resize(image, width=image.shape[1]/2)
 	ratio = image.shape[0] / float(resized.shape[0])
 	
 	gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
@@ -97,7 +129,8 @@ def findComicPanels(image):
 	gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 	blurred = gray
 	
-	cv2.imshow("Gray", blurred)
+	if debug:
+		cv2.imshow("Gray", blurred)
 	
 	if isBlackBordered:
 		# Use this for pages that have black borders.
@@ -107,29 +140,23 @@ def findComicPanels(image):
 		# Use this for standard pages that have white borders. 
 		thresh = cv2.threshold(blurred, maxColorIndex-1, 255, cv2.THRESH_BINARY)[1]
 	
-	cv2.imshow("Image", thresh)
 	
-	#blur = cv2.GaussianBlur(gray,(5,5),0)
-	#ret3,thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-	ret3,threshOstus = cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-	#thresh = cv2.threshold(thresh, 0, 255, cv2.THRESH_BINARY_INV)[1]
-	cv2.imshow("Otsu", threshOstus)
-	
-	#thresh = threshOstus
-	
-	#thresh = cv2.Canny(gray,100,200)
-	#thresh = cv2.threshold(thresh, 0, 255, cv2.THRESH_BINARY_INV)[1]
-	#ret3,thresh = cv2.threshold(thresh,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-	#cv2.imshow("Canny", thresh)
-	
-	cv2.waitKey(0)
-	
+	if debug:
+		cv2.imshow("Image", thresh)
+		
+		#blur = cv2.GaussianBlur(gray,(5,5),0)
+		#ret3,thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+		#ret3,threshOstus = cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+		#thresh = cv2.threshold(thresh, 0, 255, cv2.THRESH_BINARY_INV)[1]
+		#cv2.imshow("Otsu", threshOstus)
+		cv2.waitKey(0)
+		
 	#thresh = cv2.threshold(blurred, 170, 0, cv2.THRESH_BINARY_INV)[1]
 	#thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
 			
 	#comicPanels = extractComicPanels(resized, thresh, ratio, 3)
 	goal = 4 # desired arbitrary panel count 
-	comicPanels = findBestPanels(image, resized, thresh, ratio, goal, 1, 4)
+	comicPanels = findBestPanels(image, resized, thresh, ratio, goal, 0, 4)
 	
 	print isGoodLayout(comicPanels, image.shape)
 	
@@ -142,46 +169,78 @@ def findBestPanels(image, resized, thresh, ratio, goal, leftIternations, rightIt
 	
 	comicPanels = []
 	
+	bestIteration = 0
+	
+	isBright = isBrightPanel(thresh, 65)[0]
+	
 	while leftIternations < rightIterations:
 		midIters = leftIternations + (rightIterations - leftIternations) / 2
 	
-		comicPanels = extractComicPanels(resized.copy(), thresh, ratio, midIters)
+		comicPanels = extractComicPanels(resized.copy(), thresh, ratio, midIters, isBright)
 		print "Pass Completed "+ str(midIters)
 		
-		panelsFound = len(comicPanels)
+		panelsFound = len(comicPanels) 
+
+		if panelsFound > bestIteration and panelsFound <= MAX_PANELS_IN_PAGE: 
+			bestIteration = midIters
 		
-		if panelsFound == goal:
-			return comicPanels
-		elif not isGoodLayout(comicPanels, image.shape):
-			leftIternations = midIters + 1
-		elif panelsFound < goal:
-			leftIternations = midIters + 1
+		if isBright:
+			if panelsFound == goal:
+				return comicPanels
+			elif not isGoodLayout(comicPanels, image.shape):
+				rightIterations = midIters - 1
+			elif panelsFound < goal:
+				rightIterations = midIters - 1
+			else:
+				leftIternations = midIters
+		
 		else:
-			rightIterations = midIters
+		
+			if panelsFound == goal:
+				return comicPanels
+			elif not isGoodLayout(comicPanels, image.shape):
+				leftIternations = midIters + 1
+			elif panelsFound < goal:
+				leftIternations = midIters + 1
+			else:
+				rightIterations = midIters
 			
-	
+	comicPanels = extractComicPanels(resized.copy(), thresh, ratio, bestIteration, isBright)
+		
 	
 	return comicPanels
 	
 '''
 Given a 
 '''	
-def extractComicPanels(resized, thresh, ratio, iter):
+def extractComicPanels(resized, thresh, ratio, iter, isBright):
 	# TODO Perform a few retires if the number of produced panels is less than some 
 	# average until it reaches the maximum dilation
 	# Erode to remove separete mixed panels.
 	kernel = np.ones((2,2),np.uint8)
-	dilation = cv2.dilate(thresh,kernel,iterations = iter)#4) // Dialation ranges from 1 to 4.
-	eroded = dilation #cv2.erode(thresh,kernel,iterations = iter) #thresh #dilation
+	
+	if isBright:
+		dilation = cv2.dilate(thresh,kernel,iterations = 1)
+		eroded = cv2.erode(dilation,kernel,iterations = iter)
+	
+	else:
+		dilation = cv2.dilate(thresh,kernel,iterations = iter) # // Dialation ranges from 1 to 4.
+		eroded = dilation #thresh #dilation
+	
+	#dilation = cv2.dilate(thresh,kernel,iterations = 1)#4) // Dialation ranges from 1 to 4.
+	#eroded = cv2.erode(dilation,kernel,iterations = iter) #thresh #dilation
 	#eroded = cv2.erode(dilation,kernel,iterations = 1)
 	
-	cv2.imshow("Eroded", eroded);
-	cv2.waitKey(0)
+	if debug:
+		cv2.imshow("Eroded", eroded);
+		cv2.waitKey(0)
 	
 	im2, cnts, hierarchy = cv2.findContours(eroded.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE )
 	cv2.drawContours(resized, cnts, -1, (0,255,0), 3)
-	cv2.imshow("Image", resized)
-	cv2.waitKey(0)
+	
+	if debug:
+		cv2.imshow("Image", resized)
+		cv2.waitKey(0)
 	
 	hierarchy = hierarchy[0] # get the actual inner list of hierarchy descriptions
 	
@@ -215,22 +274,31 @@ def extractComicPanels(resized, thresh, ratio, iter):
 		
 		cv2.rectangle(blank_image, (x,y), (x+w, y+h), (0, 255, 0), -1)
 		
+		#cv2.imshow("Image", blank_image)
+		#cv2.waitKey(0)
+
+	if debug:	
 		cv2.imshow("Image", blank_image)
 		cv2.waitKey(0)
-
+	
 	#-----
+	
 	
 	# Use the newley generated image with the boxes to find new contours
 	gray = cv2.cvtColor(blank_image, cv2.COLOR_BGR2GRAY)
 	thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)[1]
-	cv2.imshow("Image", thresh)
-	cv2.waitKey(0)
 	
+	if debug:
+		cv2.imshow("Image", thresh)
+		cv2.waitKey(0)
+		
 	im2, cnts, hierarchy = cv2.findContours(thresh.copy(),cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)#cv2.CHAIN_APPROX_NONE )
 	cv2.drawContours(resized, cnts, -1, (0,255,0), 2)
-	cv2.imshow("Image", resized)
-	cv2.waitKey(0)
-	
+
+	if debug:
+		cv2.imshow("Image", resized)
+		cv2.waitKey(0)
+		
 	hierarchy = hierarchy[0] # get the actual inner list of hierarchy descriptions
 	
 	panelShapes = []
@@ -242,7 +310,6 @@ def extractComicPanels(resized, thresh, ratio, iter):
 	
 	# Assuming we can have very thin panels, this seems to be the best 
 	# amount that would allow for comfortable read. 
-	MAX_PANELS_IN_PAGE = 15 #9
 	
 	minAllowedPanelSize = (originalH * originalW) / MAX_PANELS_IN_PAGE
 	
@@ -301,18 +368,86 @@ def extractComicPanels(resized, thresh, ratio, iter):
 	print len(panelShapes)
 		
 	return panelShapes
+
+''' 
+Processes a single comic panel and places 
+the processed panels information in dest folder.
+@param path to the comic panel file
+@param dest dir where to store the panel resource. 
+'''
+def processComicPanel(comicPanelPath, dest):
+
+	image = cv2.imread(comicPanelPath)
+	
+	comicPanels = findComicPanels(image)
+	
+	for panelInfo in comicPanels:
+		x,y, w, h = panelInfo[0]
+		cv2.rectangle(image, (x,y), (x+w, y+h), (0, 255, 0), 5)
+		
+		#cv2.imshow("Image", image)
+		#cv2.waitKey(0)
+		
+	outPath = "res_"+ntpath.basename(comicPanelPath)
+
+	print outPath
+	cv2.imwrite(outPath,image)	
+	
+'''
+Processes every single comic page in the given directory.
+@param comicDirPath - path of the source directory
+@param dest - destination where to store the results
+'''
+def processComicPanelsFromDir(comicDirPath, dest):
+	
+	for filename in os.listdir(comicDirPath):
+		if filename.endswith(".png") or filename.endswith(".jpg"):
+			print filename
+			processComicPanel(os.path.join(comicDirPath, filename), dest)
 	
 if __name__ == '__main__':
 	
 	# construct the argument parse and parse the arguments
 	ap = argparse.ArgumentParser()
-	ap.add_argument("-i", "--image", required=True,
+	ap.add_argument("-i", "--image", required=False,
 		help="path to the input image")
-	args = vars(ap.parse_args())
 
-
-	image = cv2.imread(args["image"])
+	ap.add_argument("-d", "--image_dir", required=False,
+		help="path to the input image directory")
+		
+	ap.add_argument("-v", "--verbose", required=False, action='store_true',
+		help="Show debug images")
 	
+		
+	args = vars(ap.parse_args())
+	
+	debug = args["verbose"]
+	
+	if args["image"] is not None:
+	
+		processComicPanel(args["image"], "")
+		'''
+		image = cv2.imread(args["image"])
+	
+		comicPanels = findComicPanels(image)
+		
+		for panelInfo in comicPanels:
+			x,y, w, h = panelInfo[0]
+			cv2.rectangle(image, (x,y), (x+w, y+h), (0, 255, 0), 2)
+			
+			#cv2.imshow("Image", image)
+			#cv2.waitKey(0)
+		
+		outPath = "res_"+ntpath.basename(args["image"])
+
+		print outPath
+		cv2.imwrite(outPath,image)	
+		'''
+	
+	if args["image_dir"] is not None:
+		processComicPanelsFromDir(args["image_dir"], "")
+		
+		
 	'''
 	# Size of the border to add to the comic page to handle unclosed panels.
 	border_padding = 10
@@ -353,16 +488,6 @@ if __name__ == '__main__':
 	
 	'''
 	
-	comicPanels = findComicPanels(image)
-	
-	for panelInfo in comicPanels:
-		x,y, w, h = panelInfo[0]
-		cv2.rectangle(image, (x,y), (x+w, y+h), (0, 255, 0), 2)
-		
-		#cv2.imshow("Image", image)
-		#cv2.waitKey(0)
-	
-	cv2.imwrite('result.png',image)	
 	'''	
 	# TODO Perform a few retires if the number of produced panels is less than some 
 	# average until it reaches the maximum dilation
