@@ -4,11 +4,12 @@ import cv2
 import numpy as np
 import ntpath
 import os
+import json
 
 BODER_PADDING = 10 # Additional padding in pixels to add to the page for handling unclosed panels.
 MASK_SIZE = 15
 MAX_PANELS_IN_PAGE = 15 #9
-
+COMIC_PANEL_FORMAT_VERSION = 1;
 
 '''
 Uses the image histogram to evaluate if the 
@@ -143,22 +144,15 @@ def findComicPanels(image):
 	
 	if debug:
 		cv2.imshow("Image", thresh)
-		
-		#blur = cv2.GaussianBlur(gray,(5,5),0)
-		#ret3,thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-		#ret3,threshOstus = cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-		#thresh = cv2.threshold(thresh, 0, 255, cv2.THRESH_BINARY_INV)[1]
-		#cv2.imshow("Otsu", threshOstus)
 		cv2.waitKey(0)
 		
-	#thresh = cv2.threshold(blurred, 170, 0, cv2.THRESH_BINARY_INV)[1]
-	#thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
-			
-	#comicPanels = extractComicPanels(resized, thresh, ratio, 3)
 	goal = 4 # desired arbitrary panel count 
 	comicPanels = findBestPanels(image, resized, thresh, ratio, goal, 0, 4)
 	
 	print isGoodLayout(comicPanels, image.shape)
+	
+	# Reverse to get a left to right ordering of the panels
+	comicPanles = comicPanels.reverse()
 	
 	return comicPanels
 
@@ -211,7 +205,7 @@ def findBestPanels(image, resized, thresh, ratio, goal, leftIternations, rightIt
 	return comicPanels
 	
 '''
-Given a 
+Helper function to extract comic panels from a given comic page.
 '''	
 def extractComicPanels(resized, thresh, ratio, iter, isBright):
 	# TODO Perform a few retires if the number of produced panels is less than some 
@@ -265,13 +259,7 @@ def extractComicPanels(resized, thresh, ratio, iter, isBright):
 		
 		# Make a bounding box around the panel
 		x,y,w,h = cv2.boundingRect(c);
-		
-		# If we have a contour large enough to encapsulate over 60% of the image
-		# than chance are a master contour of the page so skip it.
-		#if(w > 0.66 *blank_image.shape[0] and h > 0.66 * blank_image.shape[1]):
-		#	continue
-		
-		
+			
 		cv2.rectangle(blank_image, (x,y), (x+w, y+h), (0, 255, 0), -1)
 		
 		#cv2.imshow("Image", blank_image)
@@ -390,8 +378,74 @@ def processComicPanel(comicPanelPath, dest):
 		
 	outPath = "res_"+ntpath.basename(comicPanelPath)
 
+	filename = os.path.basename(comicPanelPath)
+	filenameNotExt = os.path.splitext(filename)[0]
+	
+	metaDataDest = os.path.splitext(comicPanelPath)[0]+".cpanel"
+	
+	panelMetadata = generatePanelMetadata(comicPanels)
+	
+	metaDataFile = open(metaDataDest, "w")
+	metaDataFile.write(panelMetadata)
+	
 	print outPath
 	cv2.imwrite(outPath,image)	
+
+'''
+Given a comic panel data this function 
+generates the metadata file for the
+comic page. 
+'''	
+def generatePanelMetadata(comicPanels):
+	key_version = "version"
+	key_shape = "shape"
+	key_box = "box"
+	key_x = "x"
+	key_y = "y"
+	key_width = "w"
+	key_height = "h"
+	key_panels = "panels"
+	
+	data = {}
+	data['version'] = COMIC_PANEL_FORMAT_VERSION
+	
+	panels = []
+	data[key_panels] = panels
+	
+	for panelInfo in comicPanels:
+		x,y, w, h = panelInfo[0]
+		box = { key_x:x, 
+				key_y: y, 
+				key_width:w, 
+				key_height:h
+				}
+		'''
+		box[key_x] = x
+		box[key_y] = y
+		box[key_width] = w
+		box[key_height] = h
+		'''
+		panel = {key_box: box}
+		#panel[key_box] = box
+		
+		shape = []
+		panel[key_shape] = shape
+		
+		# For every point in the contour make a new shape entry.
+		contours = panelInfo[1]
+		
+		for cnt in contours:
+			
+			shapeEntry = { key_x: cnt[0][0], key_y: cnt[0][1]}
+			shape.append(shapeEntry)
+			
+		panels.append(panel)
+	
+	
+	json_data = json.dumps(data)
+	
+	return json_data
+	
 	
 '''
 Processes every single comic page in the given directory.
