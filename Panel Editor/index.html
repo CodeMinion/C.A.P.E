@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
 	<script src="fabric.min.js"></script>
 	<script src="jquery-3.3.1.min.js"></script>
-
+	
     <title>Hello World!</title>
 
   </head>
@@ -15,62 +15,126 @@
     and Electron <script>document.write(process.versions.electron)</script>.
 	<button id="party" class="very-sweet-looking">Open</button>
 	
-	<canvas id="c" width="200" height="100"></canvas>
+	<center>
+	 <div id="app">
+            Current Zoom: <span style="font-weight: bold;" id="current-value"></span>
+
+            <br />
+            <input type="range" id="zoom" min="20" value="100" max="200" step="10">
+    </div>
 	
+	<canvas id="c" width="200" height="100"></canvas>
+	</center>
 	
 <script>
+const {ipcRenderer} = require('electron');
 var canvas = new fabric.Canvas('c');
-canvas.setHeight(1500);
-canvas.setWidth(1500);
+var zoomFactor; 
+var zoomControl; 
+var activeComicData;
+
+let zoomLevelSpan = document.getElementById("current-value");
+
+document.getElementById("zoom").addEventListener("input", function(){
+	var value = this.value;
+	// Update label
+    zoomLevelSpan.innerHTML = value + "%";
+	zoomFactor = value / 100;
+	performZoom(zoomFactor);
+}, false);
+
+document.addEventListener('DOMContentLoaded', function(){
+	//zoomLevelSpan.innerHTML = getFactorInPercent(webFrame.getZoomFactor());
+	zoomControl = document.getElementById("zoom");
+}, false);
+
+/**
+ Zooms the canvas to the percentage specified. 
+ Range: 0 - 1;
+ */
+function performZoom(value)
+{
+	img = canvas.item(0);
+	canvas.setZoom(zoomFactor);
+	canvas.setHeight(img.height * value);
+	canvas.setWidth(img.width * value);
+    
+}
+
+//canvas.setHeight(1500);
+//canvas.setWidth(1500);
 canvas.backgroundColor="red";
 //canvas.setBackgroundImage('file://C:\\Users\\CodeMinion\\Desktop\\ComicsFolder\\Scott\'s Comics\\...And Ive got a thing for you too\\2013.06.01-Sloan_p01.jpg');
 
 
-const {ipcRenderer} = require('electron');
 
 document.addEventListener('DOMContentLoaded',pageLoaded);
 // Register to perform doSomething when receiving Back_To_You from the main process.
-ipcRenderer.on('Back_To_You', doSomething);
+//ipcRenderer.on('Back_To_You', doSomething);
 
  function pageLoaded(){
      //alert('The page is loade');
      ipcRenderer.send('Am_I_Ready',"Im ready");
  }
  
- 
-function doSomething(event, msg, panelsData){
+
+ // Register to perform doSomething when receiving Back_To_You from the main process.
+ipcRenderer.on('EVENT_LOAD_PANEL', loadComicPanel);
+
+function loadComicPanel(event, comicMetadataInfo)
+ {
     //alert('I got you -' + msg);
-	console.log(msg);
-	console.log(panelsData);
-	var filePath = msg;//msg.replace(/\\/g,  '\\\\'); 
+	var filePath = comicMetadataInfo.imagePath; 
 	console.log(filePath);
 	
 	var link = 'file://'+filePath;
-	//canvas.setBackgroundImage(link);
 	
-	//canvas.renderAll();
 	fabric.Image.fromURL(link, function(img) {
     img.set({
         id : 'comic_panel',//'image_'+index,
+		borderColor: 'gray',
         //width : canvas.width / 2,
         //height : canvas.height / 2
     });
 	
-	img.lockRotarion = true;
+	
+	// TODO Write Metadata to the system if any exists.
+	// -----
+	if (activeComicData)
+	{
+		console.log("Saving Metadata");
+		// Write metadata file. 
+		// 1- Update comic metadata with current shapes.
+		var updatedComicData = updateComicData(activeComicData, canvas);
+		console.log(updatedComicData.metadata.panels);
+		// 2- Write it to file. 
+		//REQUEST_COMIC_METADATA_STORE
+		mainProcess.saveComicPageMetadata(updatedComicData);
+		//ipcRenderer.send('REQUEST_COMIC_METADATA_STORE', updatedComicData);
+	}
+	// Prepare canvas for picture.
+	canvas.clear();
+	var value = 100;
+	zoomLevelSpan.innerHTML = value + "%";
+	document.getElementById("zoom").value = value;
+	canvas.setZoom(1);
+	
+	//
+	
+	/*
+	img.lockRotation = true;
 	img.lockScaling = true;
 	img.lockMovementX = img.lockMovementY = true;
 	img.lockScalingX = img.lockScalingY = true;
+	*/
+	img.selectable = false;
 	img.hasControls = false;
 	
-	// TODO Improve Handling of Sizing.
-	canvas.setHeight(img.height);
-	canvas.setWidth(img.width);
-    //canvas.add(img).renderAll().setActiveObject(img);
 	canvas.add(img);
-	canvas.sendToBack(img);
-	});
+	// Ensure that comic page is not overlaid over the panels.
 	
-	var panels = panelsData.panels;
+	canvas.sendToBack(img);
+	var panels = comicMetadataInfo.metadata.panels;
 	for (panelInfo in panels)
 	  {
 		 box = 	panels[panelInfo].box;
@@ -83,14 +147,121 @@ function doSomething(event, msg, panelsData){
 		  height: box.h
 		});
 		rect.opacity=0.3;
-
-		// "add" rectangle onto canvas
+		rect.lockRotation = true;
+	
 		canvas.add(rect)
-
 		console.log(box);
 	  }
+	canvas.setHeight(img.height * img.scaleY);
+	canvas.setWidth(img.width * img.scaleX);
+    canvas.renderAll();
 	
+	activeComicData = comicMetadataInfo;
+	});
  } 
+ /**
+  Updates the comic data with the panel information from the canvas. 
+  */
+function updateComicData(comicMetadataInfo, canvas)
+{
+	var panels = [];//comicMetadataInfo.metadata.panels;
+	
+	var scaleIt = function(prop)
+	{
+		if(!prop)
+		{
+			return 1;
+		}
+            return parseFloat(prop, 10);
+          };
+		  
+	canvas.forEachObject(function(obj)
+	{
+		var objId = obj.get('id');
+		
+		if(objId == 'comic_panel')
+		{
+			return;
+		}	
+		console.log(obj);
+		
+        var currentObjTop = obj.get('top'),
+            currentObjLeft = obj.get('left'),
+			currentObjWidth = obj.get('width'),
+			currentObjHeight = obj.get('height'),
+			currentObjScaleX = obj.get('scaleX'),
+            currentObjScaleY = obj.get('scaleY'),
+			scaledObjScaleX = scaleIt(currentObjScaleX),
+            scaledObjScaleY = scaleIt(currentObjScaleY);
+        
+		
+		var boxData = {
+			x: currentObjLeft,
+			y: currentObjTop,
+			w: currentObjWidth * scaledObjScaleX,
+			h: currentObjHeight * scaledObjScaleY
+		};
+		
+		// Shapes not supported yet.
+		shapeData = [];
+		
+		var panelInfo = {
+			box: boxData,
+			shape: shapeData
+		};
+		
+		panels.push(panelInfo);
+     
+	 
+	 });
+	 
+	 comicMetadataInfo.metadata.panels = panels;
+	 
+	 return comicMetadataInfo;
+} 
+ /**
+ Function to handle the displaying of a panel and it's metadata.
+ **/
+ 
+ /**
+  Helper function to scale everything inside a given canvas. 
+  Adapter from: https://gist.github.com/jefflembeck/e4d088d64d3f98ea85cc
+  */
+ function scaleAll(canvas, value){
+      var self = canvas,
+          scaleIt = function(prop){
+            return parseFloat(prop, 10) * value;
+          };
+
+      var currentCanvasHeight = self.getHeight(),
+          currentCanvasWidth  = self.getWidth(),
+          scaledCanvasHeight  = scaleIt(currentCanvasHeight),
+          scaledCanvasWidth   = scaleIt(currentCanvasWidth);
+
+
+      self.forEachObject(function(obj){
+        var currentObjTop = obj.get('top'),
+            currentObjLeft = obj.get('left'),
+            currentObjScaleX = obj.get('scaleX'),
+            currentObjScaleY = obj.get('scaleY'),
+            scaledObjTop = scaleIt(currentObjTop),
+            scaledObjLeft = scaleIt(currentObjLeft),
+            scaledObjScaleX = scaleIt(currentObjScaleX),
+            scaledObjScaleY = scaleIt(currentObjScaleY);
+
+        obj.set({
+          top: scaledObjTop,
+          left: scaledObjLeft,
+          scaleX: scaledObjScaleX,
+          scaleY: scaledObjScaleY
+        });
+        obj.setCoords();
+
+      });
+
+      self.scaleValue = value;
+      self.renderAll();
+    }
  
 
 // Use this to call method on other JS files including main/index

@@ -77,15 +77,45 @@ exports.selecComicPage = function ()
   
   // TODO Handled file not existent
   // Load panel metadata file.
-  var panelData = '';
   var panelDataPath = pathNoExt + '.cpanel';
-  panelData = fs.readFileSync(panelDataPath);
-  var jsonContent = JSON.parse(panelData);
+  var panelData = '';
+  
+  if(fs.existsSync(panelDataPath))
+  {
+	panelData = fs.readFileSync(panelDataPath);
+	var jsonContent = JSON.parse(panelData);
+  }
+  else
+  {
+	jsonContent = {};
+  }
   
   
-  win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent);
+  var comicMetadataInfo = {
+	imagePath: path.normalize(filePath[0]), // Path to the comic panel image.
+	metadataPath: panelDataPath, // Path to the metadata file.
+	metadata: jsonContent	// Loaded JSON comic panel metadata.
+  };
   
-}
+  //win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
+  win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
+};
+
+//ipcMain.on('REQUEST_COMIC_METADATA_STORE', saveComicPageMetadata);
+/***
+Given a comic info write it to a file.
+**/
+//function saveComicPageMetadata(event, comicMetadataToStore) 
+exports.saveComicPageMetadata = function (comicMetadataToStore)
+{
+	var metadataPath = comicMetadataToStore.metadataPath;
+	metadata = comicMetadataToStore.metadata;
+	var json = JSON.stringify(metadata);
+	fs.writeFileSync(metadataPath, json, 'utf8', new function(err)
+		{
+	
+		});
+};
 
 // Install notes on windeos
 /*
