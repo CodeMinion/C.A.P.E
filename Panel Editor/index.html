@@ -2,30 +2,110 @@
 <html>
   <head>
     <meta charset="UTF-8">
+	<script src="fabric.min.js"></script>
+	<script src="jquery-3.3.1.min.js"></script>
+
     <title>Hello World!</title>
+
   </head>
   <body>
     <h1>Hello World!</h1>
     We are using node <script>document.write(process.versions.node)</script>,
     Chrome <script>document.write(process.versions.chrome)</script>,
     and Electron <script>document.write(process.versions.electron)</script>.
+	<button id="party" class="very-sweet-looking">Open</button>
 	
 	<canvas id="c" width="200" height="100"></canvas>
 	
+	
 <script>
+var canvas = new fabric.Canvas('c');
+canvas.setHeight(1500);
+canvas.setWidth(1500);
+canvas.backgroundColor="red";
+//canvas.setBackgroundImage('file://C:\\Users\\CodeMinion\\Desktop\\ComicsFolder\\Scott\'s Comics\\...And Ive got a thing for you too\\2013.06.01-Sloan_p01.jpg');
+
+
 const {ipcRenderer} = require('electron');
+
 document.addEventListener('DOMContentLoaded',pageLoaded);
+// Register to perform doSomething when receiving Back_To_You from the main process.
 ipcRenderer.on('Back_To_You', doSomething);
 
  function pageLoaded(){
-     alert('The page is loade');
+     //alert('The page is loade');
      ipcRenderer.send('Am_I_Ready',"Im ready");
  }
  
  
-function doSomething(){
-    alert('I got you');
+function doSomething(event, msg, panelsData){
+    //alert('I got you -' + msg);
+	console.log(msg);
+	console.log(panelsData);
+	var filePath = msg;//msg.replace(/\\/g,  '\\\\'); 
+	console.log(filePath);
+	
+	var link = 'file://'+filePath;
+	//canvas.setBackgroundImage(link);
+	
+	//canvas.renderAll();
+	fabric.Image.fromURL(link, function(img) {
+    img.set({
+        id : 'comic_panel',//'image_'+index,
+        //width : canvas.width / 2,
+        //height : canvas.height / 2
+    });
+	
+	img.lockRotarion = true;
+	img.lockScaling = true;
+	img.lockMovementX = img.lockMovementY = true;
+	img.lockScalingX = img.lockScalingY = true;
+	img.hasControls = false;
+	
+	// TODO Improve Handling of Sizing.
+	canvas.setHeight(img.height);
+	canvas.setWidth(img.width);
+    //canvas.add(img).renderAll().setActiveObject(img);
+	canvas.add(img);
+	canvas.sendToBack(img);
+	});
+	
+	var panels = panelsData.panels;
+	for (panelInfo in panels)
+	  {
+		 box = 	panels[panelInfo].box;
+		 
+		 var rect = new fabric.Rect({
+		  left: box.x,
+		  top: box.y,
+		  fill: 'green',
+		  width: box.w,
+		  height: box.h
+		});
+		rect.opacity=0.3;
+
+		// "add" rectangle onto canvas
+		canvas.add(rect)
+
+		console.log(box);
+	  }
+	
  } 
+ 
+
+// Use this to call method on other JS files including main/index
+const electron = require('electron')
+const remote = electron.remote
+const mainProcess = remote.require('./index')
+
+//const mainProcess = remote.require('./main')
+document.getElementById('party').addEventListener('click', _ => {
+  // Call method on JS.
+  mainProcess.selecComicPage()
+})
+
+
+ 
 </script>
 
   </body>

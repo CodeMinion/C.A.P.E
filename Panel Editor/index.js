@@ -1,6 +1,17 @@
 const { app, BrowserWindow } = require('electron');
 const fs = require('fs');
 const fabric = require('fabric').fabric;
+const {shell} = require('electron')
+const {dialog} = require('electron')
+const path = require('path');
+
+const console = require('console');
+
+
+app.console = new console.Console(process.stdout, process.stderr);
+//console.log("Logging...");
+//console.warn("Hello");
+//console.error("Hello");
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -25,6 +36,55 @@ function doSomething(){
   console.log('Everything is ready.');
   // Send IPC event to the Current Render process for this window. 
   win.webContents.send('Back_To_You',"Im ready");
+  
+  // Open a folder window but can't select. 
+  //shell.openItem('C:\\')
+  //shell.showItemInFolder('C:\\');
+}
+
+function selectDirectory()
+{
+	dialog.showOpenDialog(win, {
+    properties: ['openDirectory']
+  })
+ 
+}
+
+exports.selectDirectory = function () {
+	
+	var path  = dialog.showOpenDialog(win, {
+    properties: ['openDirectory']
+  });
+  console.error("Hello:");
+  console.log(path);
+  
+}
+
+exports.selecComicPage = function () 
+{
+  var filePath  = dialog.showOpenDialog(win, {
+    properties: ['openFile']
+  });
+  // TODO Handle empty file
+  if(filePath.length ==0)
+  {
+	filePath = [''];
+  }
+  
+  var pathNoExt = path.join(path.parse(filePath[0]).dir, path.parse(filePath[0]).name);
+  console.error("Hello:");
+  console.log(filePath);
+  
+  // TODO Handled file not existent
+  // Load panel metadata file.
+  var panelData = '';
+  var panelDataPath = pathNoExt + '.cpanel';
+  panelData = fs.readFileSync(panelDataPath);
+  var jsonContent = JSON.parse(panelData);
+  
+  
+  win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent);
+  
 }
 
 // Install notes on windeos
@@ -37,6 +97,7 @@ function doSomething(){
 - npm install jsdom
 - Run npm install fabric
 - Requires Electron Version 2.0.8 beause it has Node 8.9.3 which is supported by fabric.
+- set NODE_ENV="development"
 */
 function createWindow () {
   // Create the browser window.
