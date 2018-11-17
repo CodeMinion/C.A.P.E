@@ -1,0 +1,20 @@
+{
+  "name": "panel-editor",
+  "version": "1.0.0",
+  "description": "Panel editor for comic book panel metadata. Allows for tweaking the output of the auto generated panels to allow for improvements of comic panels layout.",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "Comics"
+  ],
+  "author": "Frank E. Hernandez",
+  "license": "ISC",
+  "devDependencies": {},
+  "dependencies": {
+    "electron": "^2.0.8",
+    "fabric": "^2.4.3",
+    "nvm": "0.0.4"
+  }
+}

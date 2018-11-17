@@ -19,6 +19,9 @@
 <canvas id="c" width="200" height="100"></canvas>
 
 
+
+
+
 <script>
 // create a wrapper around native canvas element (with id="c")
 var canvas = new fabric.Canvas('c');
@@ -42,6 +45,7 @@ var rect = new fabric.Rect({
 */
 // "add" rectangle onto canvas
 //canvas.add(rect);
+// Set a background image to a local file.
 canvas.setBackgroundImage('file://C:\\Users\\CodeMinion\\Desktop\\ComicsFolder\\Scott\'s Comics\\...And Ive got a thing for you too\\2013.06.01-Sloan_p01.jpg');
 
 
@@ -64,10 +68,11 @@ function loadFile() {
       alert("Please select a file before clicking 'Load'");
     }
     else {
-      file = input.files[0];
-      fr = new FileReader();
-      fr.onload = receivedText;
-      fr.readAsText(file);
+      file = input.files;
+	  console.log(file);
+      //fr = new FileReader();
+      //fr.onload = receivedText;
+      //fr.readAsText(file);
     }
 
     function receivedText(e) {

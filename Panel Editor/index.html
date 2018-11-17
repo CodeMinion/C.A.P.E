@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Hello World!</title>
+  </head>
+  <body>
+    <h1>Hello World!</h1>
+    We are using node <script>document.write(process.versions.node)</script>,
+    Chrome <script>document.write(process.versions.chrome)</script>,
+    and Electron <script>document.write(process.versions.electron)</script>.
+	
+	<canvas id="c" width="200" height="100"></canvas>
+	
+<script>
+const {ipcRenderer} = require('electron');
+document.addEventListener('DOMContentLoaded',pageLoaded);
+ipcRenderer.on('Back_To_You', doSomething);
+
+ function pageLoaded(){
+     alert('The page is loade');
+     ipcRenderer.send('Am_I_Ready',"Im ready");
+ }
+ 
+ 
+function doSomething(){
+    alert('I got you');
+ } 
+</script>
+
+  </body>
+</html>
