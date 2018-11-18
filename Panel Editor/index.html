@@ -117,15 +117,18 @@ canvas.backgroundColor="red";
 
 document.addEventListener('DOMContentLoaded',pageLoaded);
 // Register to perform doSomething when receiving Back_To_You from the main process.
-//ipcRenderer.on('Back_To_You', doSomething);
-
+ipcRenderer.on('Back_To_You', doSomething);
+function doSomething(event, data)
+{
+	alert('Python Completed');
+	console.log("Got: "+ data);
+}
  function pageLoaded(){
      //alert('The page is loade');
      ipcRenderer.send('Am_I_Ready',"Im ready");
  }
  
 
- // Register to perform doSomething when receiving Back_To_You from the main process.
 ipcRenderer.on('EVENT_LOAD_PANEL', loadComicPanel);
 //ipcRenderer.on('KEYBORAD_KEY_STATE_CHANGED', handleKeyEvent);
 
@@ -146,8 +149,9 @@ function loadComicPanel(event, comicMetadataInfo)
     });
 	
 	
-	// TODO Write Metadata to the system if any exists.
-	// -----
+	// Write Metadata to the system if any exists.
+	savePanelDataHelper(activeComicData);
+	/*
 	if (activeComicData)
 	{
 		console.log("Saving Metadata");
@@ -160,6 +164,8 @@ function loadComicPanel(event, comicMetadataInfo)
 		mainProcess.saveComicPageMetadata(updatedComicData);
 		//ipcRenderer.send('REQUEST_COMIC_METADATA_STORE', updatedComicData);
 	}
+	*/
+	
 	// Prepare canvas for picture.
 	canvas.clear();
 	var value = 100;
@@ -210,6 +216,25 @@ function loadComicPanel(event, comicMetadataInfo)
 	activeComicData = comicMetadataInfo;
 	});
  } 
+ 
+ function savePanelDataHelper(activeComicData)
+ {
+	if (activeComicData)
+	{
+		var updatedComicData = updateComicData(activeComicData, canvas);
+		console.log(updatedComicData.metadata.panels);
+		mainProcess.saveComicPageMetadata(updatedComicData);
+	}		
+ }
+ 
+ ipcRenderer.on('SAVE_PANEL_DATA', performComicPanelSave);
+ 
+ function performComicPanelSave()
+ {
+	savePanelDataHelper(activeComicData);
+ }
+ 
+ 
  /**
   Updates the comic data with the panel information from the canvas. 
   */

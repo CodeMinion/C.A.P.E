@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, globalShortcut  } = require('electron');
 const fs = require('fs');
 const fabric = require('fabric').fabric;
 const {shell} = require('electron')
@@ -9,18 +9,30 @@ const console = require('console');
 
 //const ioHook = require('iohook');
 
+const spawn = require("child_process").spawn;
 
-
+/*
+const pythonProcess = spawn('python',["../panelextractor.py", "", ""]);
+pythonProcess.stdout.on('data', (data) => 
+{
+    // Do something with the data returned from python script
+});
+*/
 
 app.console = new console.Console(process.stdout, process.stderr);
-//console.log("Logging...");
-//console.warn("Hello");
-//console.error("Hello");
+
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let win
 
+
+app.on('ready', () => {
+  globalShortcut.register('CommandOrControl+S', () => {
+    console.log('CommandOrControl+S is pressed');
+	win.webContents.send('SAVE_PANEL_DATA',"");
+  })
+})
 
 /*
 ioHook.on("keyup", event => {
@@ -50,7 +62,7 @@ function doSomething(){
 	
   console.log('Everything is ready.');
   // Send IPC event to the Current Render process for this window. 
-  win.webContents.send('Back_To_You',"Im ready");
+  //win.webContents.send('Back_To_You',"Im ready");
   
   // Open a folder window but can't select. 
   //shell.openItem('C:\\')
@@ -86,7 +98,41 @@ exports.selecComicPage = function ()
 	filePath = [''];
   }
   
-  var pathNoExt = path.join(path.parse(filePath[0]).dir, path.parse(filePath[0]).name);
+	const pythonProcess = spawn('python',["../panelextractor.py", "-i", filePath[0]]);
+	pythonProcess.stdout.on('data', (data) => 
+	{
+		// Do something with the data returned from python script
+		win.webContents.send('Back_To_You',data);
+  
+		comicMetadataInfo = loadComicPageDataHelper(filePath[0]);
+		//win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
+		win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
+
+	});
+	pythonProcess.stderr.on('data', (data) => 
+	{
+		// Do something with the data returned from python script
+		win.webContents.send('Back_To_You','Failed To Run');
+  
+	});
+  
+  /*
+  comicMetadataInfo = loadComicPageDataHelper(filePath[0]);
+  //win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
+  win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
+  */
+};
+
+/**
+ Helper method to load a given comic page. 
+ Given the path to a comic page, this method loads 
+ all the metadata for the comic panels.
+ @param filePath - Path to the comic page.
+ @returns comicMetadataInfo
+*/ 
+function loadComicPageDataHelper(filePath)
+{
+  var pathNoExt = path.join(path.parse(filePath).dir, path.parse(filePath).name);
   console.error("Hello:");
   console.log(filePath);
   
@@ -107,14 +153,14 @@ exports.selecComicPage = function ()
   
   
   var comicMetadataInfo = {
-	imagePath: path.normalize(filePath[0]), // Path to the comic panel image.
+	imagePath: path.normalize(filePath), // Path to the comic panel image.
 	metadataPath: panelDataPath, // Path to the metadata file.
 	metadata: jsonContent	// Loaded JSON comic panel metadata.
   };
   
-  //win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
-  win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
-};
+  return comicMetadataInfo;
+
+}
 
 //ipcMain.on('REQUEST_COMIC_METADATA_STORE', saveComicPageMetadata);
 /***
