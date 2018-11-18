@@ -28,6 +28,21 @@
 		Processing Frame Data....
 	</div>
 	
+	
+	<div style="width: 100%; display: table;">
+		<div style="display: table-row">
+			<div id="comic_page_controls" style="overflow-y: scroll; height:100px; width: 30%; display: table-cell;">  </div>
+			<div id="comic_controls" style="width: 80%; display: table-cell;"> 
+				Current Zoom: <span style="font-weight: bold;" id="current-value"></span>
+				<br />
+				<input type="range" id="zoom" min="20" value="100" max="200" step="10">
+				<canvas id="c" width="200" height="100"></canvas>
+			</div>
+			
+		</div>
+	</div>
+
+	<!--
 	 <div id="comic_controls">
             Current Zoom: <span style="font-weight: bold;" id="current-value"></span>
 
@@ -37,7 +52,7 @@
 		<canvas id="c" width="200" height="100"></canvas>
 	
 	</div>
-	
+	-->
 	</center>
 	
 <script>
@@ -68,8 +83,21 @@ ipcRenderer.on('EVENT_LOAD_START', onComicLoadStart);
 
 function onComicLoadStart(event)
 {
+	clearComicRows();
 	$(process_progress).show();
 	$(comic_controls).hide();
+}
+
+
+
+ipcRenderer.on('EVENT_EXPORT_COMIC', onExportComicRequest);
+
+function onExportComicRequest(event, packageFormat = 'cbz')
+{
+	if(activeComicData)
+	{
+		mainProcess.exportComic(activeComicData.folder, packageFormat);
+	}
 }
 
 ipcRenderer.on('EVENT_LOG', logMe);
@@ -414,6 +442,14 @@ function openSingleComicPage(event, processPanel=false)
 	mainProcess.selectComicPage(processPanel);
 }
 
+ipcRenderer.on('OPEN_FOLDER_PANEL_DATA', openEntireComicFolder);
+
+function openEntireComicFolder(event, processPanel=false)
+{
+	mainProcess.selectComicDirectory(processPanel);
+}
+
+
 ipcRenderer.on('EVENT_LOAD_PANELS_AREA', onComicPanelsLoaded);
 
 function onComicPanelsLoaded(event, metatdataList)
@@ -521,10 +557,17 @@ $(document).ready(function () {
   //your code here
 });
 
-
+function clearComicRows()
+{
+	var myNode = document.getElementById("comic_page_controls");
+	while (myNode.firstChild) 
+	{
+		myNode.removeChild(myNode.firstChild);
+	}
+}
 function addComicRow(comicMetadataInfo)
 {
-	var appDiv = document.getElementById('comic_controls');
+	var appDiv = document.getElementById('comic_page_controls');
 	
 	var imagePath = comicMetadataInfo.imagePath;
 	var id = comicMetadataInfo.id;
@@ -535,10 +578,10 @@ function addComicRow(comicMetadataInfo)
 	var context = {
 		imagePath: imagePath, 
 		id : id,
-		body: "This is my first post!"};
+		body: comicMetadataInfo.name};
 	
 	var html    = template(context);
-	$('#comic_controls').append(html);
+	$('#comic_page_controls').append(html);
 	
 	var comicButton = document.querySelector('#'+id);
 	comicButton.addEventListener('click', function (e) {
@@ -550,21 +593,44 @@ function addComicRow(comicMetadataInfo)
 	
 }
 
- 
-</script>
+/* 
+TODO: Add drag and drop support. 
+Drag support modified 
+from: https://ourcodeworld.com/articles/read/288/how-to-handle-drag-and-drop-file-feature-in-electron-framework
+*/
+    (function () {
+        var holder = document.getElementById('drag-file');
 
-<script id="entry-template" type="text/x-handlebars-template">
-  <div class="entry">
-    <h1>{{title}}</h1>
-    <div class="body">
-      {{body}}
-    </div>
-  </div>
+        holder.ondragover = () => {
+            return false;
+        };
+
+        holder.ondragleave = () => {
+            return false;
+        };
+
+        holder.ondragend = () => {
+            return false;
+        };
+
+        holder.ondrop = (e) => {
+            e.preventDefault();
+
+            for (let f of e.dataTransfer.files) {
+                console.log('File(s) you dragged here: ', f.path)
+            }
+            
+            return false;
+        };
+    })();
+
+	
+ 
 </script>
 
 <script id="comic-row-template" type="text/x-handlebars-template">
   <div class="entry" id="{{id}}">
-    <img src="{{imagePath}}"  alt="Smiley face" height="150">
+    <img src="{{imagePath}}"  height="150">
     <div class="body">
       {{body}}
     </div>

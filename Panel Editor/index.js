@@ -8,7 +8,11 @@ const console = require('console');
 const spawn = require("child_process").spawn;
 const { Menu, MenuItem } = require('electron')
 
-const COMIC_IMAGE_EXTENSIONS = [".jpg",".jepg", ".jpe", ".png", ".bmp", ".tiff", ".tif"]
+const COMIC_IMAGE_EXTENSIONS = ["jpg","jepg", "jpe", "png", "bmp", "tiff", "tif"]
+const COMIC_METADATA_EXTENSIONS = ["cpanel"];
+
+var AdmZip = require('adm-zip');
+
 /*
 const pythonProcess = spawn('python',["../panelextractor.py", "", ""]);
 pythonProcess.stdout.on('data', (data) => 
@@ -38,6 +42,7 @@ const appMenu = new Menu();
 
 const fileMenu = new Menu()
 const viewMenu = new Menu();
+const exportMenu = new Menu();
 
 appMenu.append(new MenuItem({
   label: 'File',
@@ -51,6 +56,13 @@ appMenu.append(new MenuItem({
   submenu: viewMenu 
 }))
 
+appMenu.append(new MenuItem({
+  label: 'Export',
+  //accelerator: 'CmdOrCtrl+S',
+  submenu: exportMenu 
+}))
+
+
 // File Menu
 const saveMenuItem = new MenuItem({
   label: 'Save',
@@ -59,18 +71,34 @@ const saveMenuItem = new MenuItem({
 });
 
 const openMenuItem = new MenuItem({
-  label: 'Open',
-  accelerator: 'CmdOrCtrl+O',
+  label: 'Open Page',
+  accelerator: 'CmdOrCtrl+Shift+O',
   click: () => { win.webContents.send('OPEN_SINGLE_PANEL_DATA'); }
 });
 
 const processMenuItem = new MenuItem({
-  label: 'Process Panel',
-  accelerator: 'CmdOrCtrl+P',
+  label: 'Process Page',
+  accelerator: 'CmdOrCtrl+Shift+P',
   click: () => { win.webContents.send('OPEN_SINGLE_PANEL_DATA', true); }
 });
 
+const openComicMenuItem = new MenuItem({
+  label: 'Open Folder',
+  accelerator: 'CmdOrCtrl+O',
+  click: () => { win.webContents.send('OPEN_FOLDER_PANEL_DATA'); }
+});
+
+const processComicMenuItem = new MenuItem({
+  label: 'Process Folder',
+  accelerator: 'CmdOrCtrl+P',
+  click: () => { win.webContents.send('OPEN_FOLDER_PANEL_DATA', true); }
+});
+
 fileMenu.append(saveMenuItem);
+fileMenu.append(new MenuItem({type: 'separator'}));
+fileMenu.append(openComicMenuItem);
+fileMenu.append(processComicMenuItem);
+fileMenu.append(new MenuItem({type: 'separator'}));
 fileMenu.append(openMenuItem);
 fileMenu.append(processMenuItem);
 
@@ -98,6 +126,14 @@ const zoomOutMenu =new MenuItem({
 })
 viewMenu.append(zoomOutMenu);
 
+
+// Export Menu 
+const exporCbzMenu =new MenuItem({
+  label: 'Export as CBZ',
+  accelerator: 'CmdOrCtrl+E',
+  click: () => { win.webContents.send('EVENT_EXPORT_COMIC',"cbz"); }
+})
+exportMenu.append(exporCbzMenu);
 
 Menu.setApplicationMenu(appMenu)
 
@@ -258,10 +294,27 @@ function isAllowedImagePath(imagePath)
 {
 	var ext = path.parse(imagePath).ext;
 	
+	if(ext)
+	{
+		ext = ext.replace('.', '');
+	}
 	var valid =  COMIC_IMAGE_EXTENSIONS.includes(ext);
 
 	win.webContents.send('EVENT_LOG', ext + " Valid : " +valid);
 	
+	return valid;
+
+}
+
+function isAllowedMetadataPath(imagePath)
+{
+	var ext = path.parse(imagePath).ext;
+	
+	if(ext)
+	{
+		ext = ext.replace('.', '');
+	}
+	var valid =  COMIC_METADATA_EXTENSIONS.includes(ext);
 	return valid;
 
 }
@@ -356,6 +409,8 @@ function loadComicPageDataHelper(filePath)
   
   var comicMetadataInfo = {
 	id: id,
+	name: path.parse(filePath).name,
+	folder: path.parse(filePath).dir,
 	imagePath: path.normalize(filePath), // Path to the comic panel image.
 	metadataPath: panelDataPath, // Path to the metadata file.
 	metadata: jsonContent	// Loaded JSON comic panel metadata.
@@ -383,9 +438,90 @@ exports.saveComicPageMetadata = function (comicMetadataToStore)
 	var json = JSON.stringify(metadata);
 	fs.writeFileSync(metadataPath, json, 'utf8', new function(err)
 		{
-	
+			// Do nothing.
 		});
 };
+
+exports.exportComic = function (pathToComicDir, packageFormat = 'cbz') 
+{
+  var filePath  = dialog.showSaveDialog(win, {
+    properties: ['saveFile'],
+	filters: [
+    //{ name: "All Files", extensions: ["*"] },
+    //{ name: "Images", extensions: COMIC_IMAGE_EXTENSIONS },
+  ],
+  });
+	
+	win.webContents.send('EVENT_LOG', "Selection:" + filePath);
+	
+	if (!filePath || filePath.length == 0)
+	{
+		return;
+	}
+	
+	var destPath = filePath;
+	
+	packageComicAsCBZ(pathToComicDir, destPath);
+	
+}
+
+
+/**
+ Function to package all the comic images and metadata 
+ files into a CBZ format to allow reading by comic apps. 
+ **/
+function packageComicAsCBZ(pathToComicDir, destPath)
+{
+	var zip = new AdmZip();
+	
+	var filesToPack = getAllComicPackagebleFiles(pathToComicDir);
+	
+	for(var i = 0; i < filesToPack.length; i++)
+	{
+		zip.addLocalFile(filesToPack[i]);
+	}
+	
+	//win.webContents.send('EVENT_LOG', "Dest:" + destPath+'.cbz');
+	zip.writeZip(destPath+'.cbz');
+}
+
+function getAllComicPackagebleFiles(path)
+{
+  var folderPath = path;
+  var files = fs.readdirSync(folderPath);
+  //win.webContents.send('EVENT_LOG', files);
+  
+  var comicImageFiles = []
+  
+  for (var i =0; i < files.length; i++)
+  {
+	 var file = files[i];
+	 //win.webContents.send('EVENT_LOG', 'File Found:'+ file);
+	 var filename = getFilePath(folderPath, file);//path.join(folderPath,path.parse(file).filename);
+	 //win.webContents.send('EVENT_LOG', 'File Found:'+filename);
+	
+	 var stat = fs.lstatSync(filename);
+	 if (stat.isDirectory())
+	 {
+		//win.webContents.send('EVENT_LOG', "Dir :"+ filename);
+	 	continue;
+	 }
+	 
+	
+	 if(!isAllowedImagePath(filename) && !isAllowedMetadataPath(filename))
+	 {
+		// Not a valid image file.
+		continue;
+	 }
+	 
+	 
+	 //win.webContents.send('EVENT_LOG', 'Adding File:'+filename);
+	 comicImageFiles.push(filename);
+  }
+  
+  return comicImageFiles;
+  
+}
 
 // Install notes on windeos
 /*

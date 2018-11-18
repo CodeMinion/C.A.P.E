@@ -13,6 +13,7 @@
   "license": "ISC",
   "devDependencies": {},
   "dependencies": {
+    "adm-zip": "^0.4.13",
     "electron": "^2.0.8",
     "fabric": "^2.4.3",
     "nvm": "0.0.4"
