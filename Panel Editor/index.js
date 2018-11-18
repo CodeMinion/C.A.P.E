@@ -87,7 +87,14 @@ exports.selectDirectory = function () {
   
 }
 
-exports.selecComicPage = function () 
+/**
+ Opens a file dialog to allow the user to select as 
+ single comic page for post processing. 
+ If processPanel is set to True this will instead run the 
+ panel through the automated panel detector and then display
+ the results on the editor for post processing. 
+ */
+exports.selectComicPage = function (processPanel = false) 
 {
   var filePath  = dialog.showOpenDialog(win, {
     properties: ['openFile']
@@ -98,29 +105,34 @@ exports.selecComicPage = function ()
 	filePath = [''];
   }
   
-	const pythonProcess = spawn('python',["../panelextractor.py", "-i", filePath[0]]);
-	pythonProcess.stdout.on('data', (data) => 
+    if(processPanel)
 	{
-		// Do something with the data returned from python script
-		win.webContents.send('Back_To_You',data);
-  
+		const pythonProcess = spawn('python',["../panelextractor.py", "-i", filePath[0]]);
+		pythonProcess.stdout.on('data', (data) => 
+		{
+			// Do something with the data returned from python script
+			win.webContents.send('Back_To_You',data);
+			// TODO Sperate this logic into two method. One to allow just opening the panels
+			// and one that will run the script on the panel and then load it. 
+			comicMetadataInfo = loadComicPageDataHelper(filePath[0]);
+			//win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
+			win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
+
+		});
+		pythonProcess.stderr.on('data', (data) => 
+		{
+			// Do something with the data returned from python script
+			win.webContents.send('Back_To_You','Failed To Run');
+			// TODO Handle Error cases. 
+		});
+	}	
+	else
+	{
 		comicMetadataInfo = loadComicPageDataHelper(filePath[0]);
 		//win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
 		win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
-
-	});
-	pythonProcess.stderr.on('data', (data) => 
-	{
-		// Do something with the data returned from python script
-		win.webContents.send('Back_To_You','Failed To Run');
+	}
   
-	});
-  
-  /*
-  comicMetadataInfo = loadComicPageDataHelper(filePath[0]);
-  //win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
-  win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
-  */
 };
 
 /**
