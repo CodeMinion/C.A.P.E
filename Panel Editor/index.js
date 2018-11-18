@@ -7,6 +7,10 @@ const path = require('path');
 
 const console = require('console');
 
+//const ioHook = require('iohook');
+
+
+
 
 app.console = new console.Console(process.stdout, process.stderr);
 //console.log("Logging...");
@@ -16,6 +20,17 @@ app.console = new console.Console(process.stdout, process.stderr);
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let win
+
+
+/*
+ioHook.on("keyup", event => {
+   console.log(event); // {keychar: 'f', keycode: 19, rawcode: 15, type: 'keup'}
+    
+	win.webContents.send('KEYBORAD_KEY_STATE_CHANGED', event);
+});
+ioHook.start();
+
+*/
 
 /*
 document.addEventListener('DOMContentLoaded', function () {
@@ -149,6 +164,7 @@ function createWindow () {
 	//canvas.setHeight(1500);
 	//canvas.setWidth(1500);
 
+	
   });
   win.once('ready-to-show', () => {
 	console.log("Here");
@@ -179,6 +195,13 @@ function createWindow () {
     win = null
   })
 }
+
+/**
+function sendKeyEvent(event)
+{
+	win.webContents.send('KEYBORAD_KEY_STATE_CHANGED', event);
+}
+**/
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.

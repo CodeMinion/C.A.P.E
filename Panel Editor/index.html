@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
 	<script src="fabric.min.js"></script>
 	<script src="jquery-3.3.1.min.js"></script>
-	
-    <title>Hello World!</title>
+	<title>Hello World!</title>
 
   </head>
   <body>
@@ -28,20 +27,68 @@
 	
 <script>
 const {ipcRenderer} = require('electron');
-var canvas = new fabric.Canvas('c');
+var canvas = new fabric.Canvas('c', { selection: false });
 var zoomFactor; 
 var zoomControl; 
 var activeComicData;
 
+const zoomMin = 20, zoomMax = 200, zoomStep = 10; 
 let zoomLevelSpan = document.getElementById("current-value");
+
+// Initialize Mouse Controls
+//initControls(canvas);
+
 
 document.getElementById("zoom").addEventListener("input", function(){
 	var value = this.value;
+	updateZoomWidget(value);
+}, false);
+
+function getCurrentZoom()
+{
+	document.getElementById("zoom").value;
+}
+
+/**
+function zoomOut()
+{
+	var zoom = getCurrentZoom();
+	zoom -= zoomStep;
+	
+	if(zoom <= zoomMin)
+	{
+		zoom = zoomMin;
+	}
+	
+	updateZoomWidget(zoom);
+	
+	console.log(zoom);
+}
+
+function zoomIn()
+{
+	var zoom = getCurrentZoom();
+	zoom += zoomStep;
+	
+	if(zoom >= zoomMax)
+	{
+		zoom = zoomMax;
+	}
+	
+	updateZoomWidget(zoom);
+
+}
+
+*/
+
+function updateZoomWidget(value)
+{
 	// Update label
     zoomLevelSpan.innerHTML = value + "%";
 	zoomFactor = value / 100;
 	performZoom(zoomFactor);
-}, false);
+
+}
 
 document.addEventListener('DOMContentLoaded', function(){
 	//zoomLevelSpan.innerHTML = getFactorInPercent(webFrame.getZoomFactor());
@@ -80,6 +127,7 @@ document.addEventListener('DOMContentLoaded',pageLoaded);
 
  // Register to perform doSomething when receiving Back_To_You from the main process.
 ipcRenderer.on('EVENT_LOAD_PANEL', loadComicPanel);
+//ipcRenderer.on('KEYBORAD_KEY_STATE_CHANGED', handleKeyEvent);
 
 function loadComicPanel(event, comicMetadataInfo)
  {
@@ -146,6 +194,9 @@ function loadComicPanel(event, comicMetadataInfo)
 		  width: box.w,
 		  height: box.h
 		});
+		rect.borderColor = 'gray';
+		rect.cornerColor = 'black';
+		
 		rect.opacity=0.3;
 		rect.lockRotation = true;
 	
@@ -212,7 +263,7 @@ function updateComicData(comicMetadataInfo, canvas)
 		
 		panels.push(panelInfo);
      
-	 
+	
 	 });
 	 
 	 comicMetadataInfo.metadata.panels = panels;
@@ -275,6 +326,95 @@ document.getElementById('party').addEventListener('click', _ => {
   mainProcess.selecComicPage()
 })
 
+window.addEventListener('keyup', handleKeyEvent, true);
+window.addEventListener('keydown', handleKeyEvent, true);
+  
+function handleKeyEvent(event)
+{
+	console.log(event);
+	
+	isControlDown = event.ctrlKey;
+	
+	if(event.key=='Delete')
+	{
+		var activeObj = canvas.getActiveObject();
+		canvas.remove(activeObj);
+	}
+	/**
+	else if(event.key == '+')
+	{
+		zoomIn();
+	}
+	else if(event.key == '-')
+	{
+		zoomOut();
+	}
+	**/
+	
+}
+/**
+Logic for creating Rectangles via mouse down.
+Modified from Source: http://jsfiddle.net/a7mad24/aPLq5/
+*/ 
+var rect, isDown, origX, origY, isControlDown = false, createdRect;
+
+canvas.on('mouse:down', function(o){
+
+	if(isControlDown)
+	{
+		isDown = true;
+		var pointer = canvas.getPointer(o.e);
+		origX = pointer.x;
+		origY = pointer.y;
+		var pointer = canvas.getPointer(o.e);
+		rect = new fabric.Rect({
+			left: origX,
+			top: origY,
+			originX: 'left',
+			originY: 'top',
+			width: pointer.x-origX,
+			height: pointer.y-origY,
+			//angle: 0,
+			fill: 'rgba(255,0,0,0.5)',
+			//transparentCorners: false
+		});
+		
+		rect.lockRotation = true;
+		rect.selectable = true;
+		rect.hasControls = true;
+		createdRect = rect; 
+		canvas.add(rect);
+		
+	}
+});
+
+canvas.on('mouse:move', function(o){
+    if (!isDown) return;
+    var pointer = canvas.getPointer(o.e);
+
+    if(origX>pointer.x){
+        rect.set({ left: Math.abs(pointer.x) });
+    }
+    if(origY>pointer.y){
+        rect.set({ top: Math.abs(pointer.y) });
+    }
+
+    rect.set({ width: Math.abs(origX - pointer.x) });
+    rect.set({ height: Math.abs(origY - pointer.y) });
+	rect.setCoords();
+	canvas.renderAll();
+});
+
+canvas.on('mouse:up', function(o){
+  isDown = false;
+  
+  if(createdRect)
+  {
+	canvas.setActiveObject(createdRect);	 
+	canvas.bringToFront(rect);	
+	createdRect = null;
+  }
+});
 
  
 </script>
