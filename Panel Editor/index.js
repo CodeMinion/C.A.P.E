@@ -64,7 +64,7 @@ const openMenuItem = new MenuItem({
 });
 
 const processMenuItem = new MenuItem({
-  label: 'Process Panels',
+  label: 'Process Panel',
   accelerator: 'CmdOrCtrl+P',
   click: () => { win.webContents.send('OPEN_SINGLE_PANEL_DATA', true); }
 });
@@ -159,6 +159,24 @@ exports.selectDirectory = function () {
   console.log(path);
   
 }
+/**
+ Allows the user to select an entire directory containing 
+ comic panels. This will load each of the comic panels in the folder
+ and their metadata into the editor for updating. 
+ If processPanel is set to true this will first run 
+ the panel recognizer scrip to extract some initial panel data. 
+ It will then output a list of comicMetadataInfo.
+ @param processPanel set to try if we want to pre-process the folder to extract panel data.
+ **/
+exports.selectComicDirectory = function (processPanel = false) {
+	
+	var path  = dialog.showOpenDialog(win, {
+    properties: ['openDirectory']
+  });
+  console.error("Hello:");
+  console.log(path);
+  
+}
 
 /**
  Opens a file dialog to allow the user to select as 
@@ -170,7 +188,11 @@ exports.selectDirectory = function () {
 exports.selectComicPage = function (processPanel = false) 
 {
   var filePath  = dialog.showOpenDialog(win, {
-    properties: ['openFile']
+    properties: ['openFile'],
+	filters: [
+    //{ name: "All Files", extensions: ["*"] },
+    { name: "Images", extensions: ["jpg","jepg", "jpe", "png", "bmp", "tiff", "tif"] },
+  ],
   });
   // TODO Handle empty file
   if(filePath.length ==0)
@@ -230,6 +252,7 @@ function loadComicPageDataHelper(filePath)
   // Load panel metadata file.
   var panelDataPath = pathNoExt + '.cpanel';
   var panelData = '';
+  var id = 'w22';//hashCode(path.parse(filePath).name);
   
   if(fs.existsSync(panelDataPath))
   {
@@ -243,6 +266,7 @@ function loadComicPageDataHelper(filePath)
   
   
   var comicMetadataInfo = {
+	id: id,
 	imagePath: path.normalize(filePath), // Path to the comic panel image.
 	metadataPath: panelDataPath, // Path to the metadata file.
 	metadata: jsonContent	// Loaded JSON comic panel metadata.
@@ -250,6 +274,12 @@ function loadComicPageDataHelper(filePath)
   
   return comicMetadataInfo;
 
+}
+
+function hashCode(s) {
+    for(var i = 0, h = 0; i < s.length; i++)
+        h = Math.imul(31, h) + s.charCodeAt(i) | 0;
+    return h;
 }
 
 //ipcMain.on('REQUEST_COMIC_METADATA_STORE', saveComicPageMetadata);

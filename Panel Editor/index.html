@@ -7,6 +7,7 @@
 
 	<script src="fabric.min.js"></script>
 	<script src="jquery-3.3.1.min.js"></script>
+	<script src="handlebars-v4.0.12.js"></script>
 	
 	<!-- Insert this line after script imports -->
 	<script>if (window.module) module = window.module;</script>
@@ -396,7 +397,8 @@ const mainProcess = remote.require('./index')
 //const mainProcess = remote.require('./main')
 document.getElementById('party').addEventListener('click', _ => {
   // Call method on JS.
-  mainProcess.selectComicPage();
+  //mainProcess.selectComicPage();
+  mainProcess.selectComicDirectory();
 })
 
 ipcRenderer.on('OPEN_SINGLE_PANEL_DATA', openSingleComicPage);
@@ -502,20 +504,54 @@ $(document).ready(function () {
   //your code here
 });
 
-/*
+
 function addComicRow(comicMetadataInfo)
 {
-	var appDiv = document.getElementById('app');
-	var template = $.template('<div> <img src="${imagePath}" alt="Smiley face" height="42" width="42"></div>');
-	var imagePath = comicMetadataInfo.imagePath;
-	var content = appDiv.append(template, {
-		imagePath: imagePath
-	});
+	var appDiv = document.getElementById('comic_controls');
 	
-	appDiv.innerHTML+=(content);
+	var imagePath = comicMetadataInfo.imagePath;
+	var id = comicMetadataInfo.id;
+	
+	var source   = document.getElementById("comic-row-template").innerHTML;
+	var template = Handlebars.compile(source);
+
+	var context = {
+		imagePath: imagePath, 
+		id : id,
+		body: "This is my first post!"};
+	
+	var html    = template(context);
+	$('#comic_controls').append(html);
+	
+	var comicButton = document.querySelector('#'+id);
+	comicButton.addEventListener('click', function (e) {
+		//alert('play');  
+		loadComicPanel(e,comicMetadataInfo); 		
+	
+	}, false);
+	
+	
 }
-*/
+
  
+</script>
+
+<script id="entry-template" type="text/x-handlebars-template">
+  <div class="entry">
+    <h1>{{title}}</h1>
+    <div class="body">
+      {{body}}
+    </div>
+  </div>
+</script>
+
+<script id="comic-row-template" type="text/x-handlebars-template">
+  <div class="entry" id="{{id}}">
+    <img src="{{imagePath}}"  alt="Smiley face" height="150">
+    <div class="body">
+      {{body}}
+    </div>
+  </div>
 </script>
 
   </body>
