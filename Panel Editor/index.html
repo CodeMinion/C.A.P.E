@@ -2,8 +2,15 @@
 <html>
   <head>
     <meta charset="UTF-8">
+	<!-- Insert this line above script imports  -->
+	<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+
 	<script src="fabric.min.js"></script>
 	<script src="jquery-3.3.1.min.js"></script>
+	
+	<!-- Insert this line after script imports -->
+	<script>if (window.module) module = window.module;</script>
+	
 	<title>Hello World!</title>
 
   </head>
@@ -15,14 +22,21 @@
 	<button id="party" class="very-sweet-looking">Open</button>
 	
 	<center>
-	 <div id="app">
+	
+	<div id="process_progress">
+		Processing Frame Data....
+	</div>
+	
+	 <div id="comic_controls">
             Current Zoom: <span style="font-weight: bold;" id="current-value"></span>
 
             <br />
             <input type="range" id="zoom" min="20" value="100" max="200" step="10">
-    </div>
+    
+		<canvas id="c" width="200" height="100"></canvas>
 	
-	<canvas id="c" width="200" height="100"></canvas>
+	</div>
+	
 	</center>
 	
 <script>
@@ -32,11 +46,30 @@ var zoomFactor;
 var zoomControl; 
 var activeComicData;
 
-const zoomMin = 20, zoomMax = 200, zoomStep = 10; 
+const zoomMin = 20, zoomMax = 200, zoomStep = 10, zoomActualSize = 100; 
 let zoomLevelSpan = document.getElementById("current-value");
 
 // Initialize Mouse Controls
 //initControls(canvas);
+
+$(process_progress).hide();
+$(comic_controls).hide();
+
+ipcRenderer.on('EVENT_LOAD_COMPLETE', onComicLoadComplete);
+
+function onComicLoadComplete(event)
+{
+	$(process_progress).hide();
+	$(comic_controls).show();
+}
+
+ipcRenderer.on('EVENT_LOAD_START', onComicLoadStart);
+
+function onComicLoadStart(event)
+{
+	$(process_progress).show();
+	$(comic_controls).hide();
+}
 
 
 document.getElementById("zoom").addEventListener("input", function(){
@@ -46,10 +79,11 @@ document.getElementById("zoom").addEventListener("input", function(){
 
 function getCurrentZoom()
 {
-	document.getElementById("zoom").value;
+	return parseInt(document.getElementById("zoom").value);
 }
 
-/**
+
+ipcRenderer.on('EVENT_ZOOM_OUT', zoomOut);
 function zoomOut()
 {
 	var zoom = getCurrentZoom();
@@ -61,10 +95,9 @@ function zoomOut()
 	}
 	
 	updateZoomWidget(zoom);
-	
-	console.log(zoom);
 }
 
+ipcRenderer.on('EVENT_ZOOM_IN', zoomIn);
 function zoomIn()
 {
 	var zoom = getCurrentZoom();
@@ -74,16 +107,28 @@ function zoomIn()
 	{
 		zoom = zoomMax;
 	}
-	
 	updateZoomWidget(zoom);
-
 }
 
-*/
+ipcRenderer.on('EVENT_ZOOM_ACTUAL', zoomActual);
+function zoomActual()
+{
+	zoom = zoomActualSize;
+	if(zoom >= zoomMax)
+	{
+		zoom = zoomMax;
+	}
+	updateZoomWidget(zoom);
+}
+
+
+
 
 function updateZoomWidget(value)
 {
 	// Update label
+	document.getElementById("zoom").value = value;
+	
     zoomLevelSpan.innerHTML = value + "%";
 	zoomFactor = value / 100;
 	performZoom(zoomFactor);
@@ -134,6 +179,9 @@ ipcRenderer.on('EVENT_LOAD_PANEL', loadComicPanel);
 
 function loadComicPanel(event, comicMetadataInfo)
  {
+ 
+	//addComicRow(comicMetadataInfo);
+	
     //alert('I got you -' + msg);
 	var filePath = comicMetadataInfo.imagePath; 
 	console.log(filePath);
@@ -348,15 +396,23 @@ const mainProcess = remote.require('./index')
 //const mainProcess = remote.require('./main')
 document.getElementById('party').addEventListener('click', _ => {
   // Call method on JS.
-  mainProcess.selectComicPage()
+  mainProcess.selectComicPage();
 })
+
+ipcRenderer.on('OPEN_SINGLE_PANEL_DATA', openSingleComicPage);
+
+function openSingleComicPage(event, processPanel=false)
+{
+	mainProcess.selectComicPage(processPanel);
+}
+
 
 window.addEventListener('keyup', handleKeyEvent, true);
 window.addEventListener('keydown', handleKeyEvent, true);
   
 function handleKeyEvent(event)
 {
-	console.log(event);
+	//console.log(event);
 	
 	isControlDown = event.ctrlKey;
 	
@@ -441,6 +497,24 @@ canvas.on('mouse:up', function(o){
   }
 });
 
+
+$(document).ready(function () {
+  //your code here
+});
+
+/*
+function addComicRow(comicMetadataInfo)
+{
+	var appDiv = document.getElementById('app');
+	var template = $.template('<div> <img src="${imagePath}" alt="Smiley face" height="42" width="42"></div>');
+	var imagePath = comicMetadataInfo.imagePath;
+	var content = appDiv.append(template, {
+		imagePath: imagePath
+	});
+	
+	appDiv.innerHTML+=(content);
+}
+*/
  
 </script>
 

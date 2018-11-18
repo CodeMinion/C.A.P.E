@@ -4,12 +4,9 @@ const fabric = require('fabric').fabric;
 const {shell} = require('electron')
 const {dialog} = require('electron')
 const path = require('path');
-
 const console = require('console');
-
-//const ioHook = require('iohook');
-
 const spawn = require("child_process").spawn;
+const { Menu, MenuItem } = require('electron')
 
 /*
 const pythonProcess = spawn('python',["../panelextractor.py", "", ""]);
@@ -26,13 +23,89 @@ app.console = new console.Console(process.stdout, process.stderr);
 // be closed automatically when the JavaScript object is garbage collected.
 let win
 
-
+/*
 app.on('ready', () => {
   globalShortcut.register('CommandOrControl+S', () => {
     console.log('CommandOrControl+S is pressed');
 	win.webContents.send('SAVE_PANEL_DATA',"");
   })
 })
+*/
+
+
+const appMenu = new Menu();
+
+const fileMenu = new Menu()
+const viewMenu = new Menu();
+
+appMenu.append(new MenuItem({
+  label: 'File',
+  //accelerator: 'CmdOrCtrl+S',
+  submenu: fileMenu 
+}))
+
+appMenu.append(new MenuItem({
+  label: 'View',
+  //accelerator: 'CmdOrCtrl+S',
+  submenu: viewMenu 
+}))
+
+// File Menu
+const saveMenuItem = new MenuItem({
+  label: 'Save',
+  accelerator: 'CmdOrCtrl+S',
+  click: () => { win.webContents.send('SAVE_PANEL_DATA',""); }
+});
+
+const openMenuItem = new MenuItem({
+  label: 'Open',
+  accelerator: 'CmdOrCtrl+O',
+  click: () => { win.webContents.send('OPEN_SINGLE_PANEL_DATA'); }
+});
+
+const processMenuItem = new MenuItem({
+  label: 'Process Panels',
+  accelerator: 'CmdOrCtrl+P',
+  click: () => { win.webContents.send('OPEN_SINGLE_PANEL_DATA', true); }
+});
+
+fileMenu.append(saveMenuItem);
+fileMenu.append(openMenuItem);
+fileMenu.append(processMenuItem);
+
+
+// View Menu
+const zoomActualMenu =new MenuItem({
+  label: 'Actual Size',
+  accelerator: 'CmdOrCtrl+0',
+  click: () => { win.webContents.send('EVENT_ZOOM_ACTUAL',""); }
+})
+viewMenu.append(zoomActualMenu);
+
+
+const zoomInMenu = new MenuItem({
+  label: 'Zoom In',
+  accelerator: 'CmdOrCtrl+=',
+  click: () => { win.webContents.send('EVENT_ZOOM_IN',""); }
+})
+viewMenu.append(zoomInMenu);
+
+const zoomOutMenu =new MenuItem({
+  label: 'Zoom Out',
+  accelerator: 'CmdOrCtrl+-',
+  click: () => { win.webContents.send('EVENT_ZOOM_OUT',""); }
+})
+viewMenu.append(zoomOutMenu);
+
+
+
+Menu.setApplicationMenu(appMenu)
+//Menu.setApplicationMenu(fileMenu)
+//Menu.setApplicationMenu(viewMenu)
+
+
+
+
 
 /*
 ioHook.on("keyup", event => {
@@ -105,18 +178,22 @@ exports.selectComicPage = function (processPanel = false)
 	filePath = [''];
   }
   
+	win.webContents.send('EVENT_LOAD_START');
+		
     if(processPanel)
 	{
+		// TODO Signal Renderer to display progress.
 		const pythonProcess = spawn('python',["../panelextractor.py", "-i", filePath[0]]);
 		pythonProcess.stdout.on('data', (data) => 
 		{
 			// Do something with the data returned from python script
-			win.webContents.send('Back_To_You',data);
+			//win.webContents.send('Back_To_You',data);
 			// TODO Sperate this logic into two method. One to allow just opening the panels
 			// and one that will run the script on the panel and then load it. 
 			comicMetadataInfo = loadComicPageDataHelper(filePath[0]);
 			//win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
 			win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
+			win.webContents.send('EVENT_LOAD_COMPLETE');
 
 		});
 		pythonProcess.stderr.on('data', (data) => 
@@ -131,6 +208,7 @@ exports.selectComicPage = function (processPanel = false)
 		comicMetadataInfo = loadComicPageDataHelper(filePath[0]);
 		//win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
 		win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
+		win.webContents.send('EVENT_LOAD_COMPLETE');
 	}
   
 };
