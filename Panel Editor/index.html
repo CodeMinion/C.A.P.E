@@ -72,6 +72,12 @@ function onComicLoadStart(event)
 	$(comic_controls).hide();
 }
 
+ipcRenderer.on('EVENT_LOG', logMe);
+
+function logMe(event, toLog)
+{
+	console.log(toLog);
+}
 
 document.getElementById("zoom").addEventListener("input", function(){
 	var value = this.value;
@@ -398,7 +404,7 @@ const mainProcess = remote.require('./index')
 document.getElementById('party').addEventListener('click', _ => {
   // Call method on JS.
   //mainProcess.selectComicPage();
-  mainProcess.selectComicDirectory();
+  mainProcess.selectComicDirectory(false);
 })
 
 ipcRenderer.on('OPEN_SINGLE_PANEL_DATA', openSingleComicPage);
@@ -406,6 +412,17 @@ ipcRenderer.on('OPEN_SINGLE_PANEL_DATA', openSingleComicPage);
 function openSingleComicPage(event, processPanel=false)
 {
 	mainProcess.selectComicPage(processPanel);
+}
+
+ipcRenderer.on('EVENT_LOAD_PANELS_AREA', onComicPanelsLoaded);
+
+function onComicPanelsLoaded(event, metatdataList)
+{
+	for(var i = 0; i < metatdataList.length; i++)
+	{
+		var comicMetadataInfo = metatdataList[i];
+		addComicRow(comicMetadataInfo);
+	}
 }
 
 

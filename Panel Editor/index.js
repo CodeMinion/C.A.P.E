@@ -8,6 +8,7 @@ const console = require('console');
 const spawn = require("child_process").spawn;
 const { Menu, MenuItem } = require('electron')
 
+const COMIC_IMAGE_EXTENSIONS = [".jpg",".jepg", ".jpe", ".png", ".bmp", ".tiff", ".tif"]
 /*
 const pythonProcess = spawn('python',["../panelextractor.py", "", ""]);
 pythonProcess.stdout.on('data', (data) => 
@@ -98,33 +99,8 @@ const zoomOutMenu =new MenuItem({
 viewMenu.append(zoomOutMenu);
 
 
-
 Menu.setApplicationMenu(appMenu)
-//Menu.setApplicationMenu(fileMenu)
-//Menu.setApplicationMenu(viewMenu)
 
-
-
-
-
-/*
-ioHook.on("keyup", event => {
-   console.log(event); // {keychar: 'f', keycode: 19, rawcode: 15, type: 'keup'}
-    
-	win.webContents.send('KEYBORAD_KEY_STATE_CHANGED', event);
-});
-ioHook.start();
-
-*/
-
-/*
-document.addEventListener('DOMContentLoaded', function () {
-
-	var canvas = new fabric.StaticCanvas(null, { width: 300, height: 250 });	
-	
-});
-
-*/
 
 // Register to receive IPC events from the Render process. 
 const {ipcMain} = require('electron');
@@ -157,8 +133,8 @@ exports.selectDirectory = function () {
   });
   console.error("Hello:");
   console.log(path);
-  
-}
+ }
+ 
 /**
  Allows the user to select an entire directory containing 
  comic panels. This will load each of the comic panels in the folder
@@ -173,9 +149,121 @@ exports.selectComicDirectory = function (processPanel = false) {
 	var path  = dialog.showOpenDialog(win, {
     properties: ['openDirectory']
   });
-  console.error("Hello:");
-  console.log(path);
+
+  win.webContents.send('EVENT_LOG', path);
+
+  // TODO Handle empty file
+  if(!path || path.length ==0)
+  {
+	return;
+  }
   
+  var folderPath = path[0];
+  var files = fs.readdirSync(folderPath);
+  win.webContents.send('EVENT_LOG', files);
+  
+  var comicImageFiles = []
+  
+  for (var i =0; i < files.length; i++)
+  {
+	 var file = files[i];
+	 //win.webContents.send('EVENT_LOG', 'File Found:'+ file);
+	 var filename = getFilePath(folderPath, file);//path.join(folderPath,path.parse(file).filename);
+	 //win.webContents.send('EVENT_LOG', 'File Found:'+filename);
+	
+	 var stat = fs.lstatSync(filename);
+	 if (stat.isDirectory())
+	 {
+		//win.webContents.send('EVENT_LOG', "Dir :"+ filename);
+	 	continue;
+	 }
+	 
+	 if(!isAllowedImagePath(filename))
+	 {
+		// Not a valid image file.
+		//win.webContents.send('EVENT_LOG', 'File Not Allowed:'+filename);
+		continue;
+	 }
+	 
+	 //win.webContents.send('EVENT_LOG', 'Adding File:'+filename);
+	 comicImageFiles.push(filename);
+  }
+  win.webContents.send('EVENT_LOG', comicImageFiles);
+  loadComicFileFromFolder(folderPath, comicImageFiles, processPanel);
+ 
+}
+
+/** 
+ Given a folder and a list of comic files this method will load all the files 
+ metadata. If processPanels is true, the entire directory wii be run through 
+ the automate comic panel extraction process. 
+*/
+function loadComicFileFromFolder(folderPath, listComicFile, processPanel = false)
+{
+
+	if (folderPath.length == 0)
+	{
+		return;
+	}
+	
+	win.webContents.send('EVENT_LOAD_START');
+		
+    if(processPanel)
+	{
+		// TODO Signal Renderer to display progress.
+		const pythonProcess = spawn('python',["../panelextractor.py", "-d", folderPath]);
+		pythonProcess.stdout.on('data', (data) => 
+		{
+			var outMetaData = []
+			for(var i = 0; i < listComicFile.length; i++)
+			{
+				comicMetadataInfo = loadComicPageDataHelper(listComicFile[i]);
+				outMetaData.push(comicMetadataInfo);
+			}
+			
+			win.webContents.send('EVENT_LOAD_PANEL', outMetaData[0]);
+			win.webContents.send('EVENT_LOAD_PANELS_AREA', outMetaData);
+			win.webContents.send('EVENT_LOAD_COMPLETE');
+
+		});
+		pythonProcess.stderr.on('data', (data) => 
+		{
+			// Do something with the data returned from python script
+			win.webContents.send('Back_To_You','Failed To Run');
+			// TODO Handle Error cases. 
+		});
+	}	
+	else
+	{
+			var outMetaData = []
+			for(var i = 0; i < listComicFile.length; i++)
+			{
+				comicMetadataInfo = loadComicPageDataHelper(listComicFile[i]);
+				outMetaData.push(comicMetadataInfo);
+			}
+			
+			win.webContents.send('EVENT_LOAD_PANEL', outMetaData[0]);
+			win.webContents.send('EVENT_LOAD_PANELS_AREA', outMetaData);
+			win.webContents.send('EVENT_LOAD_COMPLETE');
+	}
+ 
+}
+
+function getFilePath(folderPath, file)
+{
+	return path.join(folderPath,file);
+}
+
+function isAllowedImagePath(imagePath)
+{
+	var ext = path.parse(imagePath).ext;
+	
+	var valid =  COMIC_IMAGE_EXTENSIONS.includes(ext);
+
+	win.webContents.send('EVENT_LOG', ext + " Valid : " +valid);
+	
+	return valid;
+
 }
 
 /**
@@ -191,13 +279,14 @@ exports.selectComicPage = function (processPanel = false)
     properties: ['openFile'],
 	filters: [
     //{ name: "All Files", extensions: ["*"] },
-    { name: "Images", extensions: ["jpg","jepg", "jpe", "png", "bmp", "tiff", "tif"] },
+    { name: "Images", extensions: COMIC_IMAGE_EXTENSIONS },
   ],
   });
+  
   // TODO Handle empty file
-  if(filePath.length ==0)
+  if(!filePath || filePath.length ==0)
   {
-	filePath = [''];
+	return;
   }
   
 	win.webContents.send('EVENT_LOAD_START');
@@ -252,7 +341,7 @@ function loadComicPageDataHelper(filePath)
   // Load panel metadata file.
   var panelDataPath = pathNoExt + '.cpanel';
   var panelData = '';
-  var id = 'w22';//hashCode(path.parse(filePath).name);
+  var id = 'w'+hashCode(path.parse(filePath).name);
   
   if(fs.existsSync(panelDataPath))
   {
