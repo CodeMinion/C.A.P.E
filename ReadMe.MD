@@ -1,4 +1,4 @@
-# C.A.P.E - Computer Assister Panel Extractor
+# C.A.P.E - Computer Assisted Panel Extractor
 
 C.A.P.E is a smart editor to reduce the time taken to extract comic book panel information from comic books. This extracted information is then stored as part of the comic book digital file and can be used by reader applications to created a guided reading experience for the users. By leveraging the computer extrated information we can hope to reduce the overall time to extract the panels from a comic by a magnitude of what it would take for a human alone. 
 
