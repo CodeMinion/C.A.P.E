@@ -6,7 +6,7 @@ The Approach is divided in the following stages:
  
   - Automated panel extraction using computer vision. (paneleextractor.py)
   - Graphical editor capable of loading the generated metadata to allow for a human to verify the the output and make any needed corrections. 
-  - Magic, because you can never have too much. See it in action here: https://www.youtube.com/watch?v=oBDowpjnQxU
+  - Magic, because you can never have too much. See it in action here: https://youtu.be/MVm1ywoULko
 
 # Requirements
 
