@@ -5,55 +5,67 @@
 	<!-- Insert this line above script imports  -->
 	<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
 
-	<script src="fabric.min.js"></script>
-	<script src="jquery-3.3.1.min.js"></script>
-	<script src="handlebars-v4.0.12.js"></script>
+	
+	<script src="libs/fabric.min.js"></script>
+	<script src="libs/jquery-3.3.1.min.js"></script>
+	<script src="libs/handlebars-v4.0.12.js"></script>
+	<script src="libs/bootstrap/js/bootstrap.min.js"></script>
 	
 	<!-- Insert this line after script imports -->
 	<script>if (window.module) module = window.module;</script>
 	
+	<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="stylesheet" href="libs/bootstrap/css/bootstrap.min.css">
+    
 	<title>Hello World!</title>
 
   </head>
   <body>
-    <h1>Hello World!</h1>
-    We are using node <script>document.write(process.versions.node)</script>,
-    Chrome <script>document.write(process.versions.chrome)</script>,
-    and Electron <script>document.write(process.versions.electron)</script>.
-	<button id="party" class="very-sweet-looking">Open</button>
+    
+	<div class="container-fluid" id="drag-file-folder">
+		<div class="row">
+			<div class="col-12">
+				<h1>Hello World!</h1>
+				We are using node <script>document.write(process.versions.node)</script>,
+				Chrome <script>document.write(process.versions.chrome)</script>,
+				and Electron <script>document.write(process.versions.electron)</script>.
+				<button id="party" class="btn btn-primary">Open</button>	
+			</div>
+		</div>
 	
-	<center>
-	
-	<div id="process_progress">
-		Processing Frame Data....
-	</div>
-	
-	
-	<div style="width: 100%; display: table;">
-		<div style="display: table-row">
-			<div id="comic_page_controls" style="overflow-y: scroll; height:100px; width: 30%; display: table-cell;">  </div>
-			<div id="comic_controls" style="width: 80%; display: table-cell;"> 
-				Current Zoom: <span style="font-weight: bold;" id="current-value"></span>
-				<br />
-				<input type="range" id="zoom" min="20" value="100" max="200" step="10">
-				<canvas id="c" width="200" height="100"></canvas>
+		<div class="row">
+			<div class="col-12">
+				<div id="process_progress">
+					<p class="text-center">Processing Frame Data....</p>
+					<div class="progress" id="process_progress">
+						
+						<div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+					</div>		
+				</div>
+			</div>
+		</div>
+		
+		<div class="row">
+			<div class="col-2">
+				<div id="comic_page_controls" style="height: 650px; overflow-y: scroll;">  
+				</div>
 			</div>
 			
+			<div class="col-10 center-block" >
+				<div id="comic_controls" class="center-block"> 
+					Current Zoom: <span style="font-weight: bold;" id="current-value">100%</span>
+					<br />
+					<input type="range" id="zoom" min="20" value="100" max="200" step="10">
+					<canvas id="c" width="200" height="100"></canvas>
+				</div>
+			</div>	
 		</div>
+		
 	</div>
-
-	<!--
-	 <div id="comic_controls">
-            Current Zoom: <span style="font-weight: bold;" id="current-value"></span>
-
-            <br />
-            <input type="range" id="zoom" min="20" value="100" max="200" step="10">
-    
-		<canvas id="c" width="200" height="100"></canvas>
 	
-	</div>
-	-->
-	</center>
 	
 <script>
 const {ipcRenderer} = require('electron');
@@ -61,6 +73,9 @@ var canvas = new fabric.Canvas('c', { selection: false });
 var zoomFactor; 
 var zoomControl; 
 var activeComicData;
+var activeMetadataList;
+var activeMetadataIndex = -1;
+
 
 const zoomMin = 20, zoomMax = 200, zoomStep = 10, zoomActualSize = 100; 
 let zoomLevelSpan = document.getElementById("current-value");
@@ -88,7 +103,45 @@ function onComicLoadStart(event)
 	$(comic_controls).hide();
 }
 
+ipcRenderer.on('EVENT_PAGE_NEXT', onPageMove);
 
+
+function onPageMove(event, prev=false)
+{
+	if(activeMetadataIndex < 0)
+	{
+		return;
+	}
+	
+	if(!activeMetadataList)
+	{
+		return;
+	}
+	
+	if(prev)
+	{
+		activeMetadataIndex -=1;
+	}
+	else
+	{
+		activeMetadataIndex +=1;
+	}
+	
+	if(activeMetadataIndex <0)
+	{
+		activeMetadataIndex = 0;
+	}
+	
+	if(activeMetadataIndex >= activeMetadataList.length)
+	{
+		activeMetadataIndex = activeMetadataList.length -1;
+	}
+	
+	comicMetadataInfo = activeMetadataList[activeMetadataIndex];
+	loadComicPanel(event,comicMetadataInfo); 	
+
+}
+		
 
 ipcRenderer.on('EVENT_EXPORT_COMIC', onExportComicRequest);
 
@@ -251,11 +304,13 @@ function loadComicPanel(event, comicMetadataInfo)
 	
 	// Prepare canvas for picture.
 	canvas.clear();
+	/*
+	// Reset Zoom Level on Load.
 	var value = 100;
 	zoomLevelSpan.innerHTML = value + "%";
 	document.getElementById("zoom").value = value;
 	canvas.setZoom(1);
-	
+	*/
 	//
 	
 	/*
@@ -286,7 +341,7 @@ function loadComicPanel(event, comicMetadataInfo)
 		rect.borderColor = 'gray';
 		rect.cornerColor = 'black';
 		
-		rect.opacity=0.3;
+		rect.opacity=0.5;
 		rect.lockRotation = true;
 	
 		canvas.add(rect)
@@ -454,12 +509,16 @@ ipcRenderer.on('EVENT_LOAD_PANELS_AREA', onComicPanelsLoaded);
 
 function onComicPanelsLoaded(event, metatdataList)
 {
+	activeMetadataList = metatdataList;
+	
+	activeMetadataIndex = 0;
 	for(var i = 0; i < metatdataList.length; i++)
 	{
 		var comicMetadataInfo = metatdataList[i];
 		addComicRow(comicMetadataInfo);
 	}
 }
+
 
 
 window.addEventListener('keyup', handleKeyEvent, true);
@@ -471,7 +530,7 @@ function handleKeyEvent(event)
 	
 	isControlDown = event.ctrlKey;
 	
-	if(event.key=='Delete')
+	if(event.key=='Delete' || event.keyCode == 91 || event.keyCode == 93)
 	{
 		var activeObj = canvas.getActiveObject();
 		canvas.remove(activeObj);
@@ -514,7 +573,8 @@ canvas.on('mouse:down', function(o){
 			fill: 'rgba(255,0,0,0.5)',
 			//transparentCorners: false
 		});
-		
+		rect.borderColor = 'gray';
+		rect.cornerColor = 'black';
 		rect.lockRotation = true;
 		rect.selectable = true;
 		rect.hasControls = true;
@@ -564,6 +624,10 @@ function clearComicRows()
 	{
 		myNode.removeChild(myNode.firstChild);
 	}
+	// Clear Metadata list as well. 
+	activeMetadataIndex = -1
+	activeMetadataList = null;
+	
 }
 function addComicRow(comicMetadataInfo)
 {
@@ -586,11 +650,19 @@ function addComicRow(comicMetadataInfo)
 	var comicButton = document.querySelector('#'+id);
 	comicButton.addEventListener('click', function (e) {
 		//alert('play');  
-		loadComicPanel(e,comicMetadataInfo); 		
+		loadComicPanel(e,comicMetadataInfo); 	
+		//comicButton.addClass('border border-primary');
+		//handleUiSelections(id);
 	
 	}, false);
 	
 	
+}
+
+function handleUiSelections(selectedId)
+{
+	var comicButton = document.querySelector('#'+selectedId);
+	comicButton.addClass("border border-secondary");
 }
 
 /* 
@@ -599,7 +671,7 @@ Drag support modified
 from: https://ourcodeworld.com/articles/read/288/how-to-handle-drag-and-drop-file-feature-in-electron-framework
 */
     (function () {
-        var holder = document.getElementById('drag-file');
+        var holder = document.getElementById('drag-file-folder');
 
         holder.ondragover = () => {
             return false;
@@ -618,6 +690,7 @@ from: https://ourcodeworld.com/articles/read/288/how-to-handle-drag-and-drop-fil
 
             for (let f of e.dataTransfer.files) {
                 console.log('File(s) you dragged here: ', f.path)
+				mainProcess.handleUserFileDrop(f.path);
             }
             
             return false;
@@ -629,13 +702,16 @@ from: https://ourcodeworld.com/articles/read/288/how-to-handle-drag-and-drop-fil
 </script>
 
 <script id="comic-row-template" type="text/x-handlebars-template">
-  <div class="entry" id="{{id}}">
-    <img src="{{imagePath}}"  height="150">
-    <div class="body">
-      {{body}}
-    </div>
+  <div class="entry center-block" id="{{id}}">
+    <center>
+		<img class="img-fluid active" src="{{imagePath}}"  height="150"/>
+		<div class="body">
+		  {{body}}
+		</div>
+	</center>
   </div>
 </script>
 
   </body>
+  <script src="renderer.js"></script>
 </html>

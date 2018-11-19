@@ -126,6 +126,22 @@ const zoomOutMenu =new MenuItem({
 })
 viewMenu.append(zoomOutMenu);
 
+viewMenu.append(new MenuItem({type: 'separator'}));
+
+const pageDownMenu =new MenuItem({
+  label: 'Next Page',
+  accelerator: 'CmdOrCtrl+PageDown',
+  click: () => { win.webContents.send('EVENT_PAGE_NEXT',false); }
+})
+viewMenu.append(pageDownMenu);
+
+const pageUpMenu =new MenuItem({
+  label: 'Prev Page',
+  accelerator: 'CmdOrCtrl+PageUp',
+  click: () => { win.webContents.send('EVENT_PAGE_NEXT',true); }
+})
+viewMenu.append(pageUpMenu);
+
 
 // Export Menu 
 const exporCbzMenu =new MenuItem({
@@ -171,6 +187,31 @@ exports.selectDirectory = function () {
   console.log(path);
  }
  
+ exports.handleUserFileDrop = function(droppedFilePath) 
+ {
+	fs.lstat(droppedFilePath, (err, stats) =>
+	{
+		win.webContents.send('EVENT_LOG', 'File Found:'+stats);
+		var processPanel = true;
+			
+		if (stats.isDirectory())
+		{
+			win.webContents.send('EVENT_LOG', 'Dir Found:'+droppedFilePath);
+			comicImageFiles = getAllComicImageFilesFromDirectory(droppedFilePath);
+			win.webContents.send('EVENT_LOG', comicImageFiles);
+			loadComicFileFromFolder(droppedFilePath, comicImageFiles, processPanel);
+		}
+		else
+		{
+			if(isAllowedImagePath(droppedFilePath))
+			{
+				loadComicFileFromFile(droppedFilePath, processPanel);
+			}
+			win.webContents.send('EVENT_LOG', 'File Found:'+droppedFilePath);
+		}
+	});
+ }
+ 
 /**
  Allows the user to select an entire directory containing 
  comic panels. This will load each of the comic panels in the folder
@@ -195,6 +236,49 @@ exports.selectComicDirectory = function (processPanel = false) {
   }
   
   var folderPath = path[0];
+  var files = fs.readdirSync(folderPath);
+  win.webContents.send('EVENT_LOG', files);
+  
+  /*
+  var comicImageFiles = []
+  
+  for (var i =0; i < files.length; i++)
+  {
+	 var file = files[i];
+	 //win.webContents.send('EVENT_LOG', 'File Found:'+ file);
+	 var filename = getFilePath(folderPath, file);//path.join(folderPath,path.parse(file).filename);
+	 //win.webContents.send('EVENT_LOG', 'File Found:'+filename);
+	
+	 var stat = fs.lstatSync(filename);
+	 if (stat.isDirectory())
+	 {
+		//win.webContents.send('EVENT_LOG', "Dir :"+ filename);
+	 	continue;
+	 }
+	 
+	 if(!isAllowedImagePath(filename))
+	 {
+		// Not a valid image file.
+		//win.webContents.send('EVENT_LOG', 'File Not Allowed:'+filename);
+		continue;
+	 }
+	 
+	 //win.webContents.send('EVENT_LOG', 'Adding File:'+filename);
+	 comicImageFiles.push(filename);
+  }*/
+  comicImageFiles = getAllComicImageFilesFromDirectory(path[0]);
+  
+  win.webContents.send('EVENT_LOG', comicImageFiles);
+  loadComicFileFromFolder(folderPath, comicImageFiles, processPanel);
+ 
+}
+
+/**
+ Returns a list of all the comic images inside a give folder.
+ **/
+function getAllComicImageFilesFromDirectory(dirPath)
+{
+  var folderPath = dirPath;
   var files = fs.readdirSync(folderPath);
   win.webContents.send('EVENT_LOG', files);
   
@@ -224,9 +308,7 @@ exports.selectComicDirectory = function (processPanel = false) {
 	 //win.webContents.send('EVENT_LOG', 'Adding File:'+filename);
 	 comicImageFiles.push(filename);
   }
-  win.webContents.send('EVENT_LOG', comicImageFiles);
-  loadComicFileFromFolder(folderPath, comicImageFiles, processPanel);
- 
+  return comicImageFiles;
 }
 
 /** 
@@ -342,6 +424,9 @@ exports.selectComicPage = function (processPanel = false)
 	return;
   }
   
+  loadComicFileFromFile(filePath[0], processPanel);
+  
+    /*
 	win.webContents.send('EVENT_LOAD_START');
 		
     if(processPanel)
@@ -374,8 +459,44 @@ exports.selectComicPage = function (processPanel = false)
 		win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
 		win.webContents.send('EVENT_LOAD_COMPLETE');
 	}
+	*/
   
 };
+
+function loadComicFileFromFile(filePath, processPanel = false)
+{
+	win.webContents.send('EVENT_LOAD_START');
+	if(processPanel)
+	{
+		// TODO Signal Renderer to display progress.
+		const pythonProcess = spawn('python',["../panelextractor.py", "-i", filePath]);
+		pythonProcess.stdout.on('data', (data) => 
+		{
+			// Do something with the data returned from python script
+			//win.webContents.send('Back_To_You',data);
+			// TODO Sperate this logic into two method. One to allow just opening the panels
+			// and one that will run the script on the panel and then load it. 
+			comicMetadataInfo = loadComicPageDataHelper(filePath);
+			//win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
+			win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
+			win.webContents.send('EVENT_LOAD_COMPLETE');
+
+		});
+		pythonProcess.stderr.on('data', (data) => 
+		{
+			// Do something with the data returned from python script
+			win.webContents.send('Back_To_You','Failed To Run');
+			// TODO Handle Error cases. 
+		});
+	}	
+	else
+	{
+		comicMetadataInfo = loadComicPageDataHelper(filePath);
+		//win.webContents.send('Back_To_You', path.normalize(filePath[0]), jsonContent, comicMetadataInfo);
+		win.webContents.send('EVENT_LOAD_PANEL', comicMetadataInfo);
+		win.webContents.send('EVENT_LOAD_COMPLETE');
+	}
+}
 
 /**
  Helper method to load a given comic page. 

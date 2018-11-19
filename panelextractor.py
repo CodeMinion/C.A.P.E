@@ -389,7 +389,9 @@ def processComicPanel(comicPanelPath, dest):
 	metaDataFile.write(panelMetadata)
 	
 	print outPath
-	cv2.imwrite(outPath,image)	
+	
+	if debug:	
+		cv2.imwrite(outPath,image)	
 
 '''
 Given a comic panel data this function 
