@@ -27,6 +27,7 @@ app.console = new console.Console(process.stdout, process.stderr);
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let win
+let helpWin
 
 /*
 app.on('ready', () => {
@@ -43,6 +44,7 @@ const appMenu = new Menu();
 const fileMenu = new Menu()
 const viewMenu = new Menu();
 const exportMenu = new Menu();
+const helpMenu = new Menu();
 
 appMenu.append(new MenuItem({
   label: 'File',
@@ -60,6 +62,12 @@ appMenu.append(new MenuItem({
   label: 'Export',
   //accelerator: 'CmdOrCtrl+S',
   submenu: exportMenu 
+}))
+
+appMenu.append(new MenuItem({
+  label: 'Help',
+  accelerator: 'F1',
+  submenu: helpMenu, 
 }))
 
 
@@ -150,6 +158,16 @@ const exporCbzMenu =new MenuItem({
   click: () => { win.webContents.send('EVENT_EXPORT_COMIC',"cbz"); }
 })
 exportMenu.append(exporCbzMenu);
+
+
+// Help Menu 
+const controlsHelpMenuItem =new MenuItem({
+  label: 'Controls Info',
+  accelerator: 'F1',
+  click: () => { helpWin.show(); }
+})
+helpMenu.append(controlsHelpMenuItem);
+
 
 Menu.setApplicationMenu(appMenu)
 
@@ -659,13 +677,17 @@ function getAllComicPackagebleFiles(path)
 function createWindow () {
   // Create the browser window.
   win = new BrowserWindow({ width: 800, height: 600, show:false });
-
+ 
+  helpWin = new BrowserWindow({ width: 400, height: 400, show:false, parent: win });
+  helpWin.setMenu(null);
   //win.webContents.on('Am_I_Ready', doSomething)
 
   console.log("Our");
   
   // and load the index.html of the app.
   win.loadFile('index.html');
+  
+  helpWin.loadFile('help.html');
   
   win.webContents.on('dom-ready', () => {
   //win.webContents.once('did-finish-load', () => {

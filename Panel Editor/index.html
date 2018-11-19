@@ -20,19 +20,17 @@
     <meta name="author" content="">
     <link rel="stylesheet" href="libs/bootstrap/css/bootstrap.min.css">
     
-	<title>Hello World!</title>
+	<title>Comic Hero - Panel Editor</title>
 
   </head>
   <body>
     
 	<div class="container-fluid" id="drag-file-folder">
 		<div class="row">
-			<div class="col-12">
-				<h1>Hello World!</h1>
-				We are using node <script>document.write(process.versions.node)</script>,
-				Chrome <script>document.write(process.versions.chrome)</script>,
-				and Electron <script>document.write(process.versions.electron)</script>.
-				<button id="party" class="btn btn-primary">Open</button>	
+			<div class="col-12 text-center">
+				<div class="alert alert-primary" role="alert">
+					<h5>Drag and Drop a comic page image or folder of comic pages to being the panel extraction.</h5>
+				</div>
 			</div>
 		</div>
 	
@@ -484,11 +482,13 @@ const remote = electron.remote
 const mainProcess = remote.require('./index')
 
 //const mainProcess = remote.require('./main')
+/*
 document.getElementById('party').addEventListener('click', _ => {
   // Call method on JS.
   //mainProcess.selectComicPage();
   mainProcess.selectComicDirectory(false);
 })
+*/
 
 ipcRenderer.on('OPEN_SINGLE_PANEL_DATA', openSingleComicPage);
 

@@ -1,0 +1,45 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+	<!-- Insert this line above script imports  -->
+	<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+
+	
+	<script src="libs/fabric.min.js"></script>
+	<script src="libs/jquery-3.3.1.min.js"></script>
+	<script src="libs/handlebars-v4.0.12.js"></script>
+	<script src="libs/bootstrap/js/bootstrap.min.js"></script>
+	
+	<!-- Insert this line after script imports -->
+	<script>if (window.module) module = window.module;</script>
+	
+	<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="stylesheet" href="libs/bootstrap/css/bootstrap.min.css">
+    
+	<title>Comic Hero - Panel Editor</title>
+
+  </head>
+  <body>
+    
+	<div class="container-fluid" id="drag-file-folder">
+		<div class="row">
+			<div class="col-12 text-center">
+				<h1>About:</h1>
+				<p>Smart Editor for creating metadata of comics panels with the goal of providing a frame by frame experience in the Comic Hero viewer app. </p>
+				
+				<ul class="list-group list-group-flush">
+				  <li class="list-group-item"><b>Process: </b>Drop a comic page or folder to have the editors computer vision algorithms analyse and extract its panels.</li>
+				  <li class="list-group-item"><b>Add Panel: </b>Hold down (Control or Command) and press Left Click to create a new panel.</li>
+				  <li class="list-group-item"><b>Edit Panel: </b>Edit any existing panel by selecting it and dragging it's handles.</li>
+				  <li class="list-group-item"><b>Delete Panel: </b>Left click a panel to delete and press the Delete key.</li>
+				  <li class="list-group-item"><a class="btn btn-primary" href="#" role="button">Watch a Demo Video</a></li>
+				</ul>
+			</div>
+		</div>		
+	</div>
+	
+	  </body>
+</html>
