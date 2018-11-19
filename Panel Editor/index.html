@@ -1,507 +1,459 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-	<!-- Insert this line above script imports  -->
-	<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
-
-	
-	<script src="libs/fabric.min.js"></script>
-	<script src="libs/jquery-3.3.1.min.js"></script>
-	<script src="libs/handlebars-v4.0.12.js"></script>
-	<script src="libs/bootstrap/js/bootstrap.min.js"></script>
-	
-	<!-- Insert this line after script imports -->
-	<script>if (window.module) module = window.module;</script>
-	
-	<meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="">
-    <link rel="stylesheet" href="libs/bootstrap/css/bootstrap.min.css">
-    
-	<title>Comic Hero - Panel Editor</title>
-
-  </head>
-  <body>
-    
-	<div class="container-fluid" id="drag-file-folder">
-		<div class="row">
-			<div class="col-12 text-center">
-				<div class="alert alert-primary" role="alert">
-					<h5>Drag and Drop a comic page image or folder of comic pages to being the panel extraction.</h5>
-				</div>
-			</div>
-		</div>
-	
-		<div class="row">
-			<div class="col-12">
-				<div id="process_progress">
-					<p class="text-center">Processing Frame Data....</p>
-					<div class="progress" id="process_progress">
-						
-						<div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
-					</div>		
-				</div>
-			</div>
-		</div>
-		
-		<div class="row">
-			<div class="col-2">
-				<div id="comic_page_controls" style="height: 650px; overflow-y: scroll;">  
-				</div>
-			</div>
-			
-			<div class="col-10 center-block" >
-				<div id="comic_controls" class="center-block"> 
-					Current Zoom: <span style="font-weight: bold;" id="current-value">100%</span>
-					<br />
-					<input type="range" id="zoom" min="20" value="100" max="200" step="10">
-					<canvas id="c" width="200" height="100"></canvas>
-				</div>
-			</div>	
-		</div>
-		
-	</div>
-	
-	
-<script>
-const {ipcRenderer} = require('electron');
-var canvas = new fabric.Canvas('c', { selection: false });
-var zoomFactor; 
-var zoomControl; 
-var activeComicData;
-var activeMetadataList;
-var activeMetadataIndex = -1;
+<head>
+  <meta charset="UTF-8">
+  <!-- Insert this line above script imports  -->
+  <script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
 
 
-const zoomMin = 20, zoomMax = 200, zoomStep = 10, zoomActualSize = 100; 
-let zoomLevelSpan = document.getElementById("current-value");
+  <script src="libs/fabric.min.js"></script>
+  <script src="libs/jquery-3.3.1.min.js"></script>
+  <script src="libs/handlebars-v4.0.12.js"></script>
+  <script src="libs/bootstrap/js/bootstrap.min.js"></script>
 
-// Initialize Mouse Controls
-//initControls(canvas);
+  <!-- Insert this line after script imports -->
+  <script>if (window.module) module = window.module;</script>
 
-$(process_progress).hide();
-$(comic_controls).hide();
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <link rel="stylesheet" href="libs/bootstrap/css/bootstrap.min.css">
 
-ipcRenderer.on('EVENT_LOAD_COMPLETE', onComicLoadComplete);
+  <title>Comic Hero - Panel Editor</title>
 
-function onComicLoadComplete(event)
-{
-	$(process_progress).hide();
-	$(comic_controls).show();
-}
+</head>
+<body>
 
-ipcRenderer.on('EVENT_LOAD_START', onComicLoadStart);
+  <div class="container-fluid" id="drag-file-folder">
+    <div class="row">
+      <div class="col-12 text-center">
+        <div class="alert alert-primary" role="alert">
+          <h5>Drag and Drop a comic page image or folder of comic pages to being the panel extraction.</h5>
+        </div>
+      </div>
+    </div>
 
-function onComicLoadStart(event)
-{
-	clearComicRows();
-	$(process_progress).show();
-	$(comic_controls).hide();
-}
+    <div class="row">
+      <div class="col-12">
+        <div id="process_progress">
+          <p class="text-center">Processing Frame Data....</p>
+          <div class="progress" id="process_progress">
 
-ipcRenderer.on('EVENT_PAGE_NEXT', onPageMove);
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <div class="row">
+      <div class="col-2">
+        <div id="comic_page_controls" style="height: 650px; overflow-y: scroll;">
+        </div>
+      </div>
 
-function onPageMove(event, prev=false)
-{
-	if(activeMetadataIndex < 0)
-	{
-		return;
-	}
-	
-	if(!activeMetadataList)
-	{
-		return;
-	}
-	
-	if(prev)
-	{
-		activeMetadataIndex -=1;
-	}
-	else
-	{
-		activeMetadataIndex +=1;
-	}
-	
-	if(activeMetadataIndex <0)
-	{
-		activeMetadataIndex = 0;
-	}
-	
-	if(activeMetadataIndex >= activeMetadataList.length)
-	{
-		activeMetadataIndex = activeMetadataList.length -1;
-	}
-	
-	comicMetadataInfo = activeMetadataList[activeMetadataIndex];
-	loadComicPanel(event,comicMetadataInfo); 	
+      <div class="col-10 center-block" >
+        <div id="comic_controls" class="center-block">
+          Current Zoom: <span style="font-weight: bold;" id="current-value">100%</span>
+          <br />
+          <input type="range" id="zoom" min="10" value="100" max="200" step="10">
+          <canvas id="c" width="200" height="100"></canvas>
+        </div>
+      </div>
+    </div>
 
-}
-		
-
-ipcRenderer.on('EVENT_EXPORT_COMIC', onExportComicRequest);
-
-function onExportComicRequest(event, packageFormat = 'cbz')
-{
-	if(activeComicData)
-	{
-		mainProcess.exportComic(activeComicData.folder, packageFormat);
-	}
-}
-
-ipcRenderer.on('EVENT_LOG', logMe);
-
-function logMe(event, toLog)
-{
-	console.log(toLog);
-}
-
-document.getElementById("zoom").addEventListener("input", function(){
-	var value = this.value;
-	updateZoomWidget(value);
-}, false);
-
-function getCurrentZoom()
-{
-	return parseInt(document.getElementById("zoom").value);
-}
+  </div>
 
 
-ipcRenderer.on('EVENT_ZOOM_OUT', zoomOut);
-function zoomOut()
-{
-	var zoom = getCurrentZoom();
-	zoom -= zoomStep;
-	
-	if(zoom <= zoomMin)
-	{
-		zoom = zoomMin;
-	}
-	
-	updateZoomWidget(zoom);
-}
-
-ipcRenderer.on('EVENT_ZOOM_IN', zoomIn);
-function zoomIn()
-{
-	var zoom = getCurrentZoom();
-	zoom += zoomStep;
-	
-	if(zoom >= zoomMax)
-	{
-		zoom = zoomMax;
-	}
-	updateZoomWidget(zoom);
-}
-
-ipcRenderer.on('EVENT_ZOOM_ACTUAL', zoomActual);
-function zoomActual()
-{
-	zoom = zoomActualSize;
-	if(zoom >= zoomMax)
-	{
-		zoom = zoomMax;
-	}
-	updateZoomWidget(zoom);
-}
+  <script>
+  const {ipcRenderer} = require('electron');
+  var canvas = new fabric.Canvas('c', { selection: false });
+  var zoomFactor;
+  var zoomControl;
+  var activeComicData;
+  var activeMetadataList;
+  var activeMetadataIndex = -1;
 
 
+  const zoomMin = 10, zoomMax = 200, zoomStep = 10, zoomActualSize = 100;
+  let zoomLevelSpan = document.getElementById("current-value");
+
+  $(process_progress).hide();
+  $(comic_controls).hide();
+
+  ipcRenderer.on('EVENT_LOAD_COMPLETE', onComicLoadComplete);
+
+  function onComicLoadComplete(event)
+  {
+    $(process_progress).hide();
+    $(comic_controls).show();
+  }
+
+  ipcRenderer.on('EVENT_LOAD_START', onComicLoadStart);
+
+  function onComicLoadStart(event)
+  {
+    clearComicRows();
+    $(process_progress).show();
+    $(comic_controls).hide();
+  }
+
+  ipcRenderer.on('EVENT_PAGE_NEXT', onPageMove);
 
 
-function updateZoomWidget(value)
-{
-	// Update label
-	document.getElementById("zoom").value = value;
-	
+  function onPageMove(event, prev=false)
+  {
+    if(activeMetadataIndex < 0)
+    {
+      return;
+    }
+
+    if(!activeMetadataList)
+    {
+      return;
+    }
+
+    if(prev)
+    {
+      activeMetadataIndex -=1;
+    }
+    else
+    {
+      activeMetadataIndex +=1;
+    }
+
+    if(activeMetadataIndex <0)
+    {
+      activeMetadataIndex = 0;
+    }
+
+    if(activeMetadataIndex >= activeMetadataList.length)
+    {
+      activeMetadataIndex = activeMetadataList.length -1;
+    }
+
+    comicMetadataInfo = activeMetadataList[activeMetadataIndex];
+    loadComicPanel(event,comicMetadataInfo);
+
+  }
+
+
+  ipcRenderer.on('EVENT_EXPORT_COMIC', onExportComicRequest);
+
+  function onExportComicRequest(event, packageFormat = 'cbz')
+  {
+    if(activeComicData)
+    {
+      mainProcess.exportComic(activeComicData.folder, packageFormat);
+    }
+  }
+
+  ipcRenderer.on('EVENT_LOG', logMe);
+
+  function logMe(event, toLog)
+  {
+    console.log(toLog);
+  }
+
+  document.getElementById("zoom").addEventListener("input", function(){
+    var value = this.value;
+    updateZoomWidget(value);
+  }, false);
+
+  function getCurrentZoom()
+  {
+    return parseInt(document.getElementById("zoom").value);
+  }
+
+
+  ipcRenderer.on('EVENT_ZOOM_OUT', zoomOut);
+  function zoomOut()
+  {
+    var zoom = getCurrentZoom();
+    zoom -= zoomStep;
+
+    if(zoom <= zoomMin)
+    {
+      zoom = zoomMin;
+    }
+
+    updateZoomWidget(zoom);
+  }
+
+  ipcRenderer.on('EVENT_ZOOM_IN', zoomIn);
+  function zoomIn()
+  {
+    var zoom = getCurrentZoom();
+    zoom += zoomStep;
+
+    if(zoom >= zoomMax)
+    {
+      zoom = zoomMax;
+    }
+    updateZoomWidget(zoom);
+  }
+
+  ipcRenderer.on('EVENT_ZOOM_ACTUAL', zoomActual);
+  function zoomActual()
+  {
+    zoom = zoomActualSize;
+    if(zoom >= zoomMax)
+    {
+      zoom = zoomMax;
+    }
+    updateZoomWidget(zoom);
+  }
+
+  /**
+   * Helper to update the zoom widget.
+   */
+  function updateZoomWidget(value)
+  {
+    // Update label
+    document.getElementById("zoom").value = value;
+
     zoomLevelSpan.innerHTML = value + "%";
-	zoomFactor = value / 100;
-	performZoom(zoomFactor);
+    zoomFactor = value / 100;
+    performZoom(zoomFactor);
 
-}
+  }
 
-document.addEventListener('DOMContentLoaded', function(){
-	//zoomLevelSpan.innerHTML = getFactorInPercent(webFrame.getZoomFactor());
-	zoomControl = document.getElementById("zoom");
-}, false);
+  document.addEventListener('DOMContentLoaded', function(){
+    zoomControl = document.getElementById("zoom");
+  }, false);
 
-/**
- Zooms the canvas to the percentage specified. 
- Range: 0 - 1;
- */
-function performZoom(value)
-{
-	img = canvas.item(0);
-	canvas.setZoom(zoomFactor);
-	canvas.setHeight(img.height * value);
-	canvas.setWidth(img.width * value);
-    
-}
+  /**
+  Zooms the canvas to the percentage specified.
+  Range: 0 - 1;
+  */
+  function performZoom(value)
+  {
+    img = canvas.item(0);
+    canvas.setZoom(zoomFactor);
+    canvas.setHeight(img.height * value);
+    canvas.setWidth(img.width * value);
 
-//canvas.setHeight(1500);
-//canvas.setWidth(1500);
-canvas.backgroundColor="red";
-//canvas.setBackgroundImage('file://C:\\Users\\CodeMinion\\Desktop\\ComicsFolder\\Scott\'s Comics\\...And Ive got a thing for you too\\2013.06.01-Sloan_p01.jpg');
+  }
+
+  document.addEventListener('DOMContentLoaded',pageLoaded);
+  // Register to perform doSomething when receiving Back_To_You from the main process.
+  ipcRenderer.on('Back_To_You', doSomething);
+  function doSomething(event, data)
+  {
+    alert('Python Completed');
+    console.log("Got: "+ data);
+  }
+  function pageLoaded(){
+    //alert('The page is loade');
+    //ipcRenderer.send('Am_I_Ready',"Im ready");
+  }
 
 
+  ipcRenderer.on('EVENT_LOAD_PANEL', loadComicPanel);
 
-document.addEventListener('DOMContentLoaded',pageLoaded);
-// Register to perform doSomething when receiving Back_To_You from the main process.
-ipcRenderer.on('Back_To_You', doSomething);
-function doSomething(event, data)
-{
-	alert('Python Completed');
-	console.log("Got: "+ data);
-}
- function pageLoaded(){
-     //alert('The page is loade');
-     ipcRenderer.send('Am_I_Ready',"Im ready");
- }
- 
+  function loadComicPanel(event, comicMetadataInfo)
+  {
+    var filePath = comicMetadataInfo.imagePath;
+    console.log(filePath);
 
-ipcRenderer.on('EVENT_LOAD_PANEL', loadComicPanel);
-//ipcRenderer.on('KEYBORAD_KEY_STATE_CHANGED', handleKeyEvent);
+    var link = 'file://'+filePath;
 
-function loadComicPanel(event, comicMetadataInfo)
- {
- 
-	//addComicRow(comicMetadataInfo);
-	
-    //alert('I got you -' + msg);
-	var filePath = comicMetadataInfo.imagePath; 
-	console.log(filePath);
-	
-	var link = 'file://'+filePath;
-	
-	fabric.Image.fromURL(link, function(img) {
-    img.set({
-        id : 'comic_panel',//'image_'+index,
-		borderColor: 'gray',
+    fabric.Image.fromURL(link, function(img) {
+      img.set({
+        id : 'comic_panel',
+        borderColor: 'gray',
         //width : canvas.width / 2,
         //height : canvas.height / 2
-    });
-	
-	
-	// Write Metadata to the system if any exists.
-	savePanelDataHelper(activeComicData);
-	/*
-	if (activeComicData)
-	{
-		console.log("Saving Metadata");
-		// Write metadata file. 
-		// 1- Update comic metadata with current shapes.
-		var updatedComicData = updateComicData(activeComicData, canvas);
-		console.log(updatedComicData.metadata.panels);
-		// 2- Write it to file. 
-		//REQUEST_COMIC_METADATA_STORE
-		mainProcess.saveComicPageMetadata(updatedComicData);
-		//ipcRenderer.send('REQUEST_COMIC_METADATA_STORE', updatedComicData);
-	}
-	*/
-	
-	// Prepare canvas for picture.
-	canvas.clear();
-	/*
-	// Reset Zoom Level on Load.
-	var value = 100;
-	zoomLevelSpan.innerHTML = value + "%";
-	document.getElementById("zoom").value = value;
-	canvas.setZoom(1);
-	*/
-	//
-	
-	/*
-	img.lockRotation = true;
-	img.lockScaling = true;
-	img.lockMovementX = img.lockMovementY = true;
-	img.lockScalingX = img.lockScalingY = true;
-	*/
-	img.selectable = false;
-	img.hasControls = false;
-	
-	canvas.add(img);
-	// Ensure that comic page is not overlaid over the panels.
-	
-	canvas.sendToBack(img);
-	var panels = comicMetadataInfo.metadata.panels;
-	for (panelInfo in panels)
-	  {
-		 box = 	panels[panelInfo].box;
-		 
-		 var rect = new fabric.Rect({
-		  left: box.x,
-		  top: box.y,
-		  fill: 'green',
-		  width: box.w,
-		  height: box.h
-		});
-		rect.borderColor = 'gray';
-		rect.cornerColor = 'black';
-		
-		rect.opacity=0.5;
-		rect.lockRotation = true;
-	
-		canvas.add(rect)
-		console.log(box);
-	  }
-	canvas.setHeight(img.height * img.scaleY);
-	canvas.setWidth(img.width * img.scaleX);
-    canvas.renderAll();
-	
-	activeComicData = comicMetadataInfo;
-	});
- } 
- 
- function savePanelDataHelper(activeComicData)
- {
-	if (activeComicData)
-	{
-		var updatedComicData = updateComicData(activeComicData, canvas);
-		console.log(updatedComicData.metadata.panels);
-		mainProcess.saveComicPageMetadata(updatedComicData);
-	}		
- }
- 
- ipcRenderer.on('SAVE_PANEL_DATA', performComicPanelSave);
- 
- function performComicPanelSave()
- {
-	savePanelDataHelper(activeComicData);
- }
- 
- 
- /**
-  Updates the comic data with the panel information from the canvas. 
-  */
-function updateComicData(comicMetadataInfo, canvas)
-{
-	var panels = [];//comicMetadataInfo.metadata.panels;
-	
-	var scaleIt = function(prop)
-	{
-		if(!prop)
-		{
-			return 1;
-		}
-            return parseFloat(prop, 10);
-          };
-		  
-	canvas.forEachObject(function(obj)
-	{
-		var objId = obj.get('id');
-		
-		if(objId == 'comic_panel')
-		{
-			return;
-		}	
-		console.log(obj);
-		
-        var currentObjTop = obj.get('top'),
-            currentObjLeft = obj.get('left'),
-			currentObjWidth = obj.get('width'),
-			currentObjHeight = obj.get('height'),
-			currentObjScaleX = obj.get('scaleX'),
-            currentObjScaleY = obj.get('scaleY'),
-			scaledObjScaleX = scaleIt(currentObjScaleX),
-            scaledObjScaleY = scaleIt(currentObjScaleY);
-        
-		
-		var boxData = {
-			x: currentObjLeft,
-			y: currentObjTop,
-			w: currentObjWidth * scaledObjScaleX,
-			h: currentObjHeight * scaledObjScaleY
-		};
-		
-		// Shapes not supported yet.
-		shapeData = [];
-		
-		var panelInfo = {
-			box: boxData,
-			shape: shapeData
-		};
-		
-		panels.push(panelInfo);
-     
-	
-	 });
-	 
-	 comicMetadataInfo.metadata.panels = panels;
-	 
-	 return comicMetadataInfo;
-} 
- /**
- Function to handle the displaying of a panel and it's metadata.
- **/
- 
- /**
-  Helper function to scale everything inside a given canvas. 
-  Adapter from: https://gist.github.com/jefflembeck/e4d088d64d3f98ea85cc
-  */
- function scaleAll(canvas, value){
-      var self = canvas,
-          scaleIt = function(prop){
-            return parseFloat(prop, 10) * value;
-          };
-
-      var currentCanvasHeight = self.getHeight(),
-          currentCanvasWidth  = self.getWidth(),
-          scaledCanvasHeight  = scaleIt(currentCanvasHeight),
-          scaledCanvasWidth   = scaleIt(currentCanvasWidth);
-
-
-      self.forEachObject(function(obj){
-        var currentObjTop = obj.get('top'),
-            currentObjLeft = obj.get('left'),
-            currentObjScaleX = obj.get('scaleX'),
-            currentObjScaleY = obj.get('scaleY'),
-            scaledObjTop = scaleIt(currentObjTop),
-            scaledObjLeft = scaleIt(currentObjLeft),
-            scaledObjScaleX = scaleIt(currentObjScaleX),
-            scaledObjScaleY = scaleIt(currentObjScaleY);
-
-        obj.set({
-          top: scaledObjTop,
-          left: scaledObjLeft,
-          scaleX: scaledObjScaleX,
-          scaleY: scaledObjScaleY
-        });
-        obj.setCoords();
-
       });
 
-      self.scaleValue = value;
-      self.renderAll();
+
+      // Write Metadata to the system if any exists.
+      savePanelDataHelper(activeComicData);
+
+    // Prepare canvas for picture.
+    canvas.clear();
+
+    img.selectable = false;
+    img.hasControls = false;
+
+    canvas.add(img);
+
+    // Ensure that comic page is not overlaid over the panels.
+    canvas.sendToBack(img);
+    var panels = comicMetadataInfo.metadata.panels;
+    for (panelInfo in panels)
+    {
+      box = 	panels[panelInfo].box;
+
+      var rect = new fabric.Rect({
+        left: box.x,
+        top: box.y,
+        fill: 'green',
+        width: box.w,
+        height: box.h
+      });
+      rect.borderColor = 'gray';
+      rect.cornerColor = 'black';
+
+      rect.opacity=0.5;
+      rect.lockRotation = true;
+
+      canvas.add(rect)
+      console.log(box);
     }
- 
+    canvas.setHeight(img.height * img.scaleY);
+    canvas.setWidth(img.width * img.scaleX);
+    canvas.renderAll();
+
+    activeComicData = comicMetadataInfo;
+  });
+}
+
+/**
+  * Write the current metadata to the respective panel file.
+  * Metadata is written in a file with the same name as the
+  * comic page file but with the metadata extension (cpanel)
+  */
+function savePanelDataHelper(activeComicData)
+{
+  if (activeComicData)
+  {
+    var updatedComicData = updateComicData(activeComicData, canvas);
+    console.log(updatedComicData.metadata.panels);
+    mainProcess.saveComicPageMetadata(updatedComicData);
+  }
+}
+
+ipcRenderer.on('SAVE_PANEL_DATA', performComicPanelSave);
+
+function performComicPanelSave()
+{
+  savePanelDataHelper(activeComicData);
+}
+
+
+/**
+Updates the comic data with the panel information from the canvas.
+*/
+function updateComicData(comicMetadataInfo, canvas)
+{
+  var panels = [];//comicMetadataInfo.metadata.panels;
+
+  var scaleIt = function(prop)
+  {
+    if(!prop)
+    {
+      return 1;
+    }
+    return parseFloat(prop, 10);
+  };
+
+  canvas.forEachObject(function(obj)
+  {
+    var objId = obj.get('id');
+
+    if(objId == 'comic_panel')
+    {
+      return;
+    }
+    console.log(obj);
+
+    var currentObjTop = obj.get('top'),
+    currentObjLeft = obj.get('left'),
+    currentObjWidth = obj.get('width'),
+    currentObjHeight = obj.get('height'),
+    currentObjScaleX = obj.get('scaleX'),
+    currentObjScaleY = obj.get('scaleY'),
+    scaledObjScaleX = scaleIt(currentObjScaleX),
+    scaledObjScaleY = scaleIt(currentObjScaleY);
+
+
+    var boxData = {
+      x: currentObjLeft,
+      y: currentObjTop,
+      w: currentObjWidth * scaledObjScaleX,
+      h: currentObjHeight * scaledObjScaleY
+    };
+
+    // Shapes not supported yet.
+    shapeData = [];
+
+    var panelInfo = {
+      box: boxData,
+      shape: shapeData
+    };
+
+    panels.push(panelInfo);
+
+
+  });
+
+  comicMetadataInfo.metadata.panels = panels;
+
+  return comicMetadataInfo;
+}
+/**
+Function to handle the displaying of a panel and it's metadata.
+**/
+
+/**
+Helper function to scale everything inside a given canvas.
+Adapter from: https://gist.github.com/jefflembeck/e4d088d64d3f98ea85cc
+*/
+function scaleAll(canvas, value){
+  var self = canvas,
+  scaleIt = function(prop){
+    return parseFloat(prop, 10) * value;
+  };
+
+  var currentCanvasHeight = self.getHeight(),
+  currentCanvasWidth  = self.getWidth(),
+  scaledCanvasHeight  = scaleIt(currentCanvasHeight),
+  scaledCanvasWidth   = scaleIt(currentCanvasWidth);
+
+
+  self.forEachObject(function(obj){
+    var currentObjTop = obj.get('top'),
+    currentObjLeft = obj.get('left'),
+    currentObjScaleX = obj.get('scaleX'),
+    currentObjScaleY = obj.get('scaleY'),
+    scaledObjTop = scaleIt(currentObjTop),
+    scaledObjLeft = scaleIt(currentObjLeft),
+    scaledObjScaleX = scaleIt(currentObjScaleX),
+    scaledObjScaleY = scaleIt(currentObjScaleY);
+
+    obj.set({
+      top: scaledObjTop,
+      left: scaledObjLeft,
+      scaleX: scaledObjScaleX,
+      scaleY: scaledObjScaleY
+    });
+    obj.setCoords();
+
+  });
+
+  self.scaleValue = value;
+  self.renderAll();
+}
+
 
 // Use this to call method on other JS files including main/index
 const electron = require('electron')
 const remote = electron.remote
 const mainProcess = remote.require('./index')
 
-//const mainProcess = remote.require('./main')
-/*
-document.getElementById('party').addEventListener('click', _ => {
-  // Call method on JS.
-  //mainProcess.selectComicPage();
-  mainProcess.selectComicDirectory(false);
-})
-*/
-
 ipcRenderer.on('OPEN_SINGLE_PANEL_DATA', openSingleComicPage);
 
 function openSingleComicPage(event, processPanel=false)
 {
-	mainProcess.selectComicPage(processPanel);
+  mainProcess.selectComicPage(processPanel);
 }
 
 ipcRenderer.on('OPEN_FOLDER_PANEL_DATA', openEntireComicFolder);
 
 function openEntireComicFolder(event, processPanel=false)
 {
-	mainProcess.selectComicDirectory(processPanel);
+  mainProcess.selectComicDirectory(processPanel);
 }
 
 
@@ -509,106 +461,95 @@ ipcRenderer.on('EVENT_LOAD_PANELS_AREA', onComicPanelsLoaded);
 
 function onComicPanelsLoaded(event, metatdataList)
 {
-	activeMetadataList = metatdataList;
-	
-	activeMetadataIndex = 0;
-	for(var i = 0; i < metatdataList.length; i++)
-	{
-		var comicMetadataInfo = metatdataList[i];
-		addComicRow(comicMetadataInfo);
-	}
+  activeMetadataList = metatdataList;
+
+  activeMetadataIndex = 0;
+  for(var i = 0; i < metatdataList.length; i++)
+  {
+    var comicMetadataInfo = metatdataList[i];
+    addComicRow(comicMetadataInfo);
+  }
 }
 
 
 
 window.addEventListener('keyup', handleKeyEvent, true);
 window.addEventListener('keydown', handleKeyEvent, true);
-  
+
 function handleKeyEvent(event)
 {
-	//console.log(event);
-	
-	isControlDown = event.ctrlKey;
-	
-	if(event.key=='Delete' || event.keyCode == 91 || event.keyCode == 93)
-	{
-		var activeObj = canvas.getActiveObject();
-		canvas.remove(activeObj);
-	}
-	/**
-	else if(event.key == '+')
-	{
-		zoomIn();
-	}
-	else if(event.key == '-')
-	{
-		zoomOut();
-	}
-	**/
-	
+  isControlDown = event.ctrlKey;
+
+  if(event.key=='Delete' || event.keyCode == 91 || event.keyCode == 93)
+  {
+    var activeObj = canvas.getActiveObject();
+    canvas.remove(activeObj);
+  }
+
 }
+
 /**
 Logic for creating Rectangles via mouse down.
 Modified from Source: http://jsfiddle.net/a7mad24/aPLq5/
-*/ 
+*/
 var rect, isDown, origX, origY, isControlDown = false, createdRect;
 
 canvas.on('mouse:down', function(o){
 
-	if(isControlDown)
-	{
-		isDown = true;
-		var pointer = canvas.getPointer(o.e);
-		origX = pointer.x;
-		origY = pointer.y;
-		var pointer = canvas.getPointer(o.e);
-		rect = new fabric.Rect({
-			left: origX,
-			top: origY,
-			originX: 'left',
-			originY: 'top',
-			width: pointer.x-origX,
-			height: pointer.y-origY,
-			//angle: 0,
-			fill: 'rgba(255,0,0,0.5)',
-			//transparentCorners: false
-		});
-		rect.borderColor = 'gray';
-		rect.cornerColor = 'black';
-		rect.lockRotation = true;
-		rect.selectable = true;
-		rect.hasControls = true;
-		createdRect = rect; 
-		canvas.add(rect);
-		
-	}
+  if(isControlDown)
+  {
+    isDown = true;
+    var pointer = canvas.getPointer(o.e);
+    origX = pointer.x;
+    origY = pointer.y;
+    var pointer = canvas.getPointer(o.e);
+    rect = new fabric.Rect({
+      left: origX,
+      top: origY,
+      originX: 'left',
+      originY: 'top',
+      width: pointer.x-origX,
+      height: pointer.y-origY,
+      //angle: 0,
+      fill: 'rgba(255,0,0,0.5)',
+      //transparentCorners: false
+    });
+    rect.borderColor = 'gray';
+    rect.cornerColor = 'black';
+    rect.lockRotation = true;
+    rect.selectable = true;
+    rect.hasControls = true;
+    createdRect = rect;
+    canvas.add(rect);
+
+  }
 });
 
 canvas.on('mouse:move', function(o){
-    if (!isDown) return;
-    var pointer = canvas.getPointer(o.e);
+  if (!isDown) return;
+  var pointer = canvas.getPointer(o.e);
 
-    if(origX>pointer.x){
-        rect.set({ left: Math.abs(pointer.x) });
-    }
-    if(origY>pointer.y){
-        rect.set({ top: Math.abs(pointer.y) });
-    }
+  if(origX>pointer.x){
+    rect.set({ left: Math.abs(pointer.x) });
+  }
+  if(origY>pointer.y){
+    rect.set({ top: Math.abs(pointer.y) });
+  }
 
-    rect.set({ width: Math.abs(origX - pointer.x) });
-    rect.set({ height: Math.abs(origY - pointer.y) });
-	rect.setCoords();
-	canvas.renderAll();
+  rect.set({ width: Math.abs(origX - pointer.x) });
+  rect.set({ height: Math.abs(origY - pointer.y) });
+  rect.setCoords();
+  canvas.renderAll();
 });
 
 canvas.on('mouse:up', function(o){
   isDown = false;
-  
+
   if(createdRect)
   {
-	canvas.setActiveObject(createdRect);	 
-	canvas.bringToFront(rect);	
-	createdRect = null;
+    canvas.setActiveObject(createdRect);
+    canvas.bringToFront(rect);
+    createdRect = null;
   }
 });
 
@@ -619,99 +560,103 @@ $(document).ready(function () {
 
 function clearComicRows()
 {
-	var myNode = document.getElementById("comic_page_controls");
-	while (myNode.firstChild) 
-	{
-		myNode.removeChild(myNode.firstChild);
-	}
-	// Clear Metadata list as well. 
-	activeMetadataIndex = -1
-	activeMetadataList = null;
-	
+  var myNode = document.getElementById("comic_page_controls");
+  while (myNode.firstChild)
+  {
+    myNode.removeChild(myNode.firstChild);
+  }
+  // Clear Metadata list as well.
+  activeMetadataIndex = -1
+  activeMetadataList = null;
+
 }
+
+/**
+ * Given a list of comic page metadata this
+ * function creates the side panel that the user
+ * can use to transition between pages.
+ */
 function addComicRow(comicMetadataInfo)
 {
-	var appDiv = document.getElementById('comic_page_controls');
-	
-	var imagePath = comicMetadataInfo.imagePath;
-	var id = comicMetadataInfo.id;
-	
-	var source   = document.getElementById("comic-row-template").innerHTML;
-	var template = Handlebars.compile(source);
+  var appDiv = document.getElementById('comic_page_controls');
 
-	var context = {
-		imagePath: imagePath, 
-		id : id,
-		body: comicMetadataInfo.name};
-	
-	var html    = template(context);
-	$('#comic_page_controls').append(html);
-	
-	var comicButton = document.querySelector('#'+id);
-	comicButton.addEventListener('click', function (e) {
-		//alert('play');  
-		loadComicPanel(e,comicMetadataInfo); 	
-		//comicButton.addClass('border border-primary');
-		//handleUiSelections(id);
-	
-	}, false);
-	
-	
-}
+  var imagePath = comicMetadataInfo.imagePath;
+  var id = comicMetadataInfo.id;
 
-function handleUiSelections(selectedId)
-{
-	var comicButton = document.querySelector('#'+selectedId);
-	comicButton.addClass("border border-secondary");
-}
+  var source   = document.getElementById("comic-row-template").innerHTML;
+  var template = Handlebars.compile(source);
 
-/* 
-TODO: Add drag and drop support. 
-Drag support modified 
-from: https://ourcodeworld.com/articles/read/288/how-to-handle-drag-and-drop-file-feature-in-electron-framework
-*/
-    (function () {
-        var holder = document.getElementById('drag-file-folder');
+  var context = {
+    imagePath: imagePath,
+    id : id,
+    body: comicMetadataInfo.name};
 
-        holder.ondragover = () => {
-            return false;
-        };
+    var html    = template(context);
+    $('#comic_page_controls').append(html);
 
-        holder.ondragleave = () => {
-            return false;
-        };
+    var comicButton = document.querySelector('#'+id);
+    comicButton.addEventListener('click', function (e) {
+      loadComicPanel(e,comicMetadataInfo);
+      //comicButton.addClass('border border-primary');
+      //handleUiSelections(id);
 
-        holder.ondragend = () => {
-            return false;
-        };
+    }, false);
 
-        holder.ondrop = (e) => {
-            e.preventDefault();
 
-            for (let f of e.dataTransfer.files) {
-                console.log('File(s) you dragged here: ', f.path)
-				mainProcess.handleUserFileDrop(f.path);
-            }
-            
-            return false;
-        };
-    })();
+  }
 
-	
- 
+  function handleUiSelections(selectedId)
+  {
+    var comicButton = document.querySelector('#'+selectedId);
+    comicButton.addClass("border border-secondary");
+  }
+
+  /*
+  Drag support modified
+  from: https://ourcodeworld.com/articles/read/288/how-to-handle-drag-and-drop-file-feature-in-electron-framework
+  */
+  (function () {
+    var holder = document.getElementById('drag-file-folder');
+
+    holder.ondragover = () => {
+      return false;
+    };
+
+    holder.ondragleave = () => {
+      return false;
+    };
+
+    holder.ondragend = () => {
+      return false;
+    };
+
+    holder.ondrop = (e) => {
+      e.preventDefault();
+
+      for (let f of e.dataTransfer.files) {
+        console.log('File(s) you dragged here: ', f.path)
+        mainProcess.handleUserFileDrop(f.path);
+      }
+
+      return false;
+    };
+  })();
+
+
+
 </script>
 
 <script id="comic-row-template" type="text/x-handlebars-template">
   <div class="entry center-block" id="{{id}}">
     <center>
-		<img class="img-fluid active" src="{{imagePath}}"  height="150"/>
-		<div class="body">
-		  {{body}}
-		</div>
-	</center>
+      <img class="img-fluid active" src="{{imagePath}}"  height="150"/>
+      <div class="body">
+        {{body}}
+      </div>
+    </center>
   </div>
 </script>
 
-  </body>
-  <script src="renderer.js"></script>
+</body>
+<script src="renderer.js"></script>
 </html>
