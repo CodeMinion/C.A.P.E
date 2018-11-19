@@ -329,7 +329,7 @@ function loadComicFileFromFolder(folderPath, listComicFile, processPanel = false
     if(processPanel)
 	{
 		// TODO Signal Renderer to display progress.
-		const pythonProcess = spawn('python',["../panelextractor.py", "-d", folderPath]);
+		const pythonProcess = spawn('python',["recognizer/panelextractor.py", "-d", folderPath]);
 		pythonProcess.stdout.on('data', (data) => 
 		{
 			var outMetaData = []
@@ -469,7 +469,7 @@ function loadComicFileFromFile(filePath, processPanel = false)
 	if(processPanel)
 	{
 		// TODO Signal Renderer to display progress.
-		const pythonProcess = spawn('python',["../panelextractor.py", "-i", filePath]);
+		const pythonProcess = spawn('python',["recognizer/panelextractor.py", "-i", filePath]);
 		pythonProcess.stdout.on('data', (data) => 
 		{
 			// Do something with the data returned from python script
