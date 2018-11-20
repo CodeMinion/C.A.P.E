@@ -1,6 +1,10 @@
 const application = require("application");
 const fs = require("uxp").storage.localFileSystem;
-const {Rectangle, Color} = require("scenegraph");
+const {Rectangle, Color, Text} = require("scenegraph");
+const ImageFill = require("scenegraph").ImageFill;
+
+const metadataExtension = '.cpanel';
+var activeMetadata;
 
 function rectangleHandlerFunction(selection)
 {      // [2]
@@ -15,11 +19,30 @@ function rectangleHandlerFunction(selection)
 
 }
 
-async function exportMetadata()
+async function exportMetadataHandler()
 {
-  const folder = await fs.getFolder();
-  const file = await folder.createFile("rendition.png");
+  if(!activeMetadata)
+  {
+    return;
+  }
 
+  const folder = await fs.getFolder();
+  var imageFilename = activeMetadata.imagePath;
+  var outFilename = "test_"+imageFilename.split('.')[0]+metadataExtension;
+
+  // TODO Extract panel data from the scene and update the metadata. 
+  console.log(outFilename)
+   try {
+        // first create the entry and then write.
+        var dataEntry = await folder.createEntry(outFilename, { overwrite: true});
+        return await dataEntry.write(JSON.stringify(activeMetadata));
+    }
+    catch(e) {
+        // report any errors here.
+        console.log(e);
+    }
+
+  /*
   let renditionSettings = [{
     node: selection.items[0],               // refers to the first user-selected item in the document
     outputFile: file,                       // Set the outputFile property to the file constant we created
@@ -34,11 +57,55 @@ async function exportMetadata()
     .catch(error => {                              // Any errors will land in .catch
         console.log(error);
     });
+    */
 
 }
 
-async function importMetadata()
+async function importMetadataHandler(selection)
 {
+    const comicImageFile = await fs.getFileForOpening({ types: ["jpg", "png"] });
+    const fill = new ImageFill(comicImageFile);
+
+    // Display image
+    const shape = new Rectangle();
+    shape.width = fill.naturalWidth;
+    shape.height = fill.naturalHeight;
+
+    shape.fill = fill;
+    selection.insertionParent.addChild(shape);
+
+    const aFile = await fs.getFileForOpening({ types: ["cpanel"] });   // [2]
+    if (!aFile) return;                                             // [3]
+
+    const contents = await aFile.read();                            // [4]
+
+    const metadata = JSON.parse(contents);
+    const text = new Text();                                        // [5]
+    text.text = contents;
+    text.styleRanges = [{
+        length: contents.length,
+        fill: new Color("#0000ff"),
+        fontSize: 12
+    }];
+
+    //console.log(metadata.panels);
+    var panels = metadata.panels;
+    for(var i = 0; i < panels.length; i++)
+    {
+        var box = panels[i].box;
+        console.log(box);
+        const newElement = new Rectangle();
+        newElement.width = box.w;
+        newElement.height = box.h;
+        newElement.fill = new Color("Purple", 0.5);
+
+        selection.insertionParent.addChild(newElement);
+        newElement.moveInParentCoordinates(box.x, box.y);
+    }
+
+    activeMetadata = metadata;
+    //selection.insertionParent.addChild(text)                       // [6]
+    //text.moveInParentCoordinates(10, 30);
 
 }
 
@@ -46,7 +113,7 @@ module.exports =
 {
     commands:
     {
-        importMetadata: rectangleHandlerFunction,
-        exportMetadata: exportMetadata
+        importMetadata: importMetadataHandler,
+        exportMetadata: exportMetadataHandler
     }
 };
