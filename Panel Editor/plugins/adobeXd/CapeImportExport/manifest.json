@@ -1,0 +1,21 @@
+{
+    "id": "251ca679",
+    "name": "C.A.P.E Import/Export",
+    "host": {
+        "app": "XD",
+        "minVersion": "13.0.0"
+    },
+    "version": "1.0.0",
+    "uiEntryPoints": [
+        {
+            "type": "menu",
+            "label": "Import Metadata File",
+            "commandId": "importMetadata"
+        },
+        {
+            "type": "menu",
+            "label": "Export Metadata File",
+            "commandId": "exportMetadata"
+        }
+    ]
+}
