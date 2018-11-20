@@ -12,9 +12,9 @@ const COMIC_IMAGE_EXTENSIONS = ["jpg","jepg", "jpe", "png", "bmp", "tiff", "tif"
 const COMIC_METADATA_EXTENSIONS = ["cpanel"];
 
 var AdmZip = require('adm-zip');
-
 app.console = new console.Console(process.stdout, process.stderr);
 
+var mangaStyle = false;
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -480,6 +480,23 @@ exports.saveComicPageMetadata = function (comicMetadataToStore)
 {
   var metadataPath = comicMetadataToStore.metadataPath;
   metadata = comicMetadataToStore.metadata;
+  // Sort Panels so they are in the proper reading order in the array.
+  metadata.panels.sort(function(panelA, panelB)
+  {
+      if(panelA.box.y == panelB.box.y)
+      {
+         if(mangaStyle)
+         {
+           return panelB.box.x - panelA.box.x;
+         }
+         else
+         {
+           return panelA.box.x - panelB.box.x;
+         }
+      }
+      return panelA.box.y - panelB.box.y;
+  });
+
   var json = JSON.stringify(metadata);
   fs.writeFileSync(metadataPath, json, 'utf8', new function(err)
   {
