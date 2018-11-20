@@ -38,7 +38,8 @@ First Tab:
 		},
 		"shape": []
 	},
-	"version": 1
+	"imagePath": "2013.06.01-Sloan_p01.jpg",
+	"version": 2
 }
 ```
 - version: Current version of the format, used for tracking future changes.

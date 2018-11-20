@@ -11,7 +11,7 @@ from ComicPanel import ComicPanel
 BODER_PADDING = 10 # Additional padding in pixels to add to the page for handling unclosed panels.
 MASK_SIZE = 15
 MAX_PANELS_IN_PAGE = 15 #9
-COMIC_PANEL_FORMAT_VERSION = 1;
+COMIC_PANEL_FORMAT_VERSION = 2;
 
 '''
 Uses the image histogram to evaluate if the
@@ -390,6 +390,10 @@ def processComicPanel(comicPanelPath, dest):
 
 	panelMetadata = generatePanelMetadata(comicPanels)
 
+	# Add image file name to improve linkage to the source image
+	panelMetadata['imagePath'] = filename
+
+	panelMetadata = json.dumps(panelMetadata)
 	metaDataFile = open(metaDataDest, "w")
 	metaDataFile.write(panelMetadata)
 
@@ -448,9 +452,9 @@ def generatePanelMetadata(comicPanels):
 		panels.append(panel)
 
 
-	json_data = json.dumps(data)
+	#json_data = json.dumps(data)
 
-	return json_data
+	return data #json_data
 
 
 '''

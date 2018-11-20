@@ -309,7 +309,7 @@ function loadComicFileFromFolder(folderPath, listComicFile, processPanel = false
     });
     pythonProcess.stderr.on('data', (data) =>
     {
-      // Do something with the data returned from python script
+      // Do something with the error data returned from python script
       win.webContents.send('Back_To_You','Failed To Run');
       // TODO Handle Error cases.
     });
