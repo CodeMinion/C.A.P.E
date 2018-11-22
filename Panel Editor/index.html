@@ -67,6 +67,8 @@
 
   <script>
   const {ipcRenderer} = require('electron');
+  const path = require('path');
+
   var canvas = new fabric.Canvas('c', { selection: false });
   var zoomFactor;
   var zoomControl;
@@ -97,6 +99,23 @@
     $(process_progress).show();
     $(comic_controls).hide();
   }
+
+
+  ipcRenderer.on('EVENT_CROP_START', onPanelCropStart);
+  function onPanelCropStart(event)
+  {
+    $(process_progress).show();
+    $(comic_controls).hide();
+  }
+
+  ipcRenderer.on('EVENT_CROP_COMPLETE', onComicLoadComplete);
+
+  function onComicLoadComplete(event)
+  {
+    $(process_progress).hide();
+    $(comic_controls).show();
+  }
+
 
   ipcRenderer.on('EVENT_PAGE_NEXT', onPageMove);
 
@@ -145,6 +164,18 @@
     if(activeComicData)
     {
       mainProcess.exportComic(activeComicData.folder, packageFormat);
+    }
+  }
+
+  ipcRenderer.on('EVENT_EXPORT_CROPPED_PANELS', onExportCroppedPanelsRequest)
+
+  function onExportCroppedPanelsRequest(event)
+  {
+    if(activeComicData)
+    {
+      srcDirDest = path.dirname(activeComicData.imagePath);
+      console.log('Cropping From' + srcDirDest);
+      mainProcess.selectCropDestDirectory(srcDirDest);
     }
   }
 
@@ -416,7 +447,8 @@ function updateComicData(comicMetadataInfo, canvas)
 
 
   });
-
+  comicMetadataInfo.imageWidth = maxWidth;
+  comicMetadataInfo.imageHeight = maxHeight;
   comicMetadataInfo.metadata.panels = panels;
 
   return comicMetadataInfo;

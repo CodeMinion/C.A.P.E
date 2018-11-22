@@ -147,6 +147,14 @@ const exporCbzMenu =new MenuItem({
   click: () => { win.webContents.send('EVENT_EXPORT_COMIC',"cbz"); }
 })
 exportMenu.append(exporCbzMenu);
+
+const exporPanelsMenuItem =new MenuItem({
+  label: 'Export Cropped Panels',
+  accelerator: 'CmdOrCtrl+R',
+  click: () => { win.webContents.send('EVENT_EXPORT_CROPPED_PANELS'); }
+})
+exportMenu.append(exporPanelsMenuItem);
+
 /////////////////////////////////////////////////////////
 
 // Help Menu
@@ -330,6 +338,58 @@ function loadComicFileFromFolder(folderPath, listComicFile, processPanel = false
 
 }
 
+/**
+Allows the user to select a destination directory
+where to store all the cropped panels of
+the current active directory.
+**/
+exports.selectCropDestDirectory = function (srcDirDest) {
+
+  var path  = dialog.showOpenDialog(win, {
+    properties: ['openDirectory']
+  });
+
+  win.webContents.send('EVENT_LOG', path);
+
+  if(!path || path.length ==0)
+  {
+    return;
+  }
+
+  var folderPath = path[0];
+  //win.webContents.send('EVENT_LOG', comicImageFiles);
+  cropComicPanels(srcDirDest, folderPath)
+
+}
+/**
+ Given destination directory, this method will crop
+ all the panels and output individual images for each
+ panel.
+*/
+function cropComicPanels(srcDirPath, destDirPath)
+{
+  if (srcDirPath.length == 0 || destDirPath.length == 0)
+  {
+    return;
+  }
+  // TODO Replace with a different message to show a different progress
+  win.webContents.send('EVENT_CROP_START');
+  // Send folder to be scanned by the recognizer to extract the page panels.
+  const pythonProcess = spawn('python',["recognizer/panelextractor.py", "-x", srcDirPath, "-s", destDirPath]);
+  pythonProcess.stdout.on('data', (data) =>
+  {
+    // TODO Replace with better message
+    win.webContents.send('EVENT_CROP_COMPLETE');
+
+  });
+  pythonProcess.stderr.on('data', (data) =>
+  {
+    // Do something with the error data returned from python script
+    win.webContents.send('Back_To_You','Failed To Run');
+    // TODO Handle Error cases.
+  });
+}
+
 function getFilePath(folderPath, file)
 {
   return path.join(folderPath,file);
@@ -480,21 +540,26 @@ exports.saveComicPageMetadata = function (comicMetadataToStore)
 {
   var metadataPath = comicMetadataToStore.metadataPath;
   metadata = comicMetadataToStore.metadata;
+
+  gridX = getGridSize(comicMetadataToStore.imageWidth);
+  gridY = getGridSize(comicMetadataToStore.imageHeight);
+  win.webContents.send('EVENT_LOG', " Grid Size : " + gridX + " , " + gridY);
+
   // Sort Panels so they are in the proper reading order in the array.
   metadata.panels.sort(function(panelA, panelB)
   {
-      if(panelA.box.y == panelB.box.y)
+      if(adjustValueToGrid(panelA.box.y,gridY) == adjustValueToGrid(panelB.box.y,gridY))
       {
          if(mangaStyle)
          {
-           return panelB.box.x - panelA.box.x;
+           return adjustValueToGrid(panelB.box.x,gridX) - adjustValueToGrid(panelA.box.x,gridX);
          }
          else
          {
-           return panelA.box.x - panelB.box.x;
+           return adjustValueToGrid(panelA.box.x,gridX) - adjustValueToGrid(panelB.box.x,gridX);
          }
       }
-      return panelA.box.y - panelB.box.y;
+      return adjustValueToGrid(panelA.box.y,gridY) - adjustValueToGrid(panelB.box.y,gridY);
   });
 
   var json = JSON.stringify(metadata);
@@ -503,6 +568,16 @@ exports.saveComicPageMetadata = function (comicMetadataToStore)
     // Do nothing.
   });
 };
+
+function adjustValueToGrid(value, gridSize)
+{
+    return Math.floor(value/gridSize);
+}
+
+function getGridSize(imageDimension)
+{
+    return parseInt(imageDimension * 0.05);
+}
 
 exports.exportComic = function (pathToComicDir, packageFormat = 'cbz')
 {
