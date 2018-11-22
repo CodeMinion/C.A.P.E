@@ -56,7 +56,7 @@ def getEdgesFromContour(contours, gridSizeX = 1, gridSizeY = 1, minLen = -1):
         nodes.append(curr)
 
         edge = PolyEdge(prev, curr)
-        print 'Length: '+ str(getEdgeLength(edge))
+        #print 'Length: '+ str(getEdgeLength(edge))
         #print 'Angle: ' + str(angleOfEdge(edge))
 
         length = getEdgeLength(edge)

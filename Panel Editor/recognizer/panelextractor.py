@@ -296,11 +296,13 @@ def extractComicPanels(resized, thresh, ratio, iter, isBright):
 		cv2.imshow("Image", resized)
 		cv2.waitKey(0)
 
+    # Area occupied by a possible large panel
+	largePanelArea = 0
 	hierarchy = hierarchy[0] # get the actual inner list of hierarchy descriptions
 
 	width = resized.shape[0]
 	blank_image = np.zeros((width, resized.shape[1], 3), np.uint8)
-	blank_image[:,0:width] = (255,255,255)      # (B, G, R)
+	blank_image[:,0:resized.shape[1]] = (255,255,255)      # (B, G, R)
 
 	# Use the initial contours to create an image of only bonding boxes
 	# loop over the contours
@@ -323,14 +325,14 @@ def extractComicPanels(resized, thresh, ratio, iter, isBright):
 		# Make a bounding box around the panel
 		x,y,w,h = cv2.boundingRect(c);
 
-		questinable = isQuestinablePanel(x,y,w,h, blank_image)
+		questionable = isQuestinablePanel(x,y,w,h, blank_image)
 
 		print 'Image size'
 		print blank_image.shape
 		# Calculate the size of the smallest edge size to discard
 		# We assume this to be left over edges connecting disconnected shapes.
 		MIN_DISCARD_EDGE_LENGTH = blank_image.shape[1] * 0.07
-		if questinable:
+		if questionable:
 			# Perform extra processing
 			epsilon = 0.001*cv2.arcLength(c,True);
 			approx = cv2.approxPolyDP(c,epsilon,True);
@@ -338,40 +340,43 @@ def extractComicPanels(resized, thresh, ratio, iter, isBright):
 				# Good panel, if it had subpanels the approximation would yeild more points
 				# Draw the panel for the next phase
 				cv2.rectangle(blank_image, (x,y), (x+w, y+h), (0, 255, 0), -1)
+				largePanelArea += (w * h)
+				print largePanelArea
+				#cv2.imshow("Image", blank_image)
+				#cv2.waitKey(0)
 			else:
 				gridSize = 5
 				edges, nodes = getEdgesFromContour(approx, gridSize, gridSize, MIN_DISCARD_EDGE_LENGTH) # TODO Replace cut off point by fraction of the image
 				graphs = findDisconnectedSubgraphs(nodes)
 				for graphInfo in graphs:
 					box = graphInfo[1]
-					cv2.rectangle(blank_image, (box[0]+gridSize,box[1]+gridSize),
-					(box[0]+box[2]-gridSize, box[1]+box[3]-gridSize), (255, 0, 255), -1)
+					x = box[0]
+					y = box[1]
+					w = box[2]
+					h = box[3]
+					cv2.rectangle(blank_image, (x + gridSize,y+gridSize),
+					(x + w-gridSize, y + h - gridSize), (255, 0, 255), -1)
+					questionable = isQuestinablePanel(x,y,w,h, blank_image)
+					if questionable:
+						largePanelArea += (w * h)
 
-				'''
-				for edge in edges:
-					cv2.line(blank_image, (edge.u.x,edge.u.y), (edge.v.x, edge.v.y), (255, 0, 0), 3)
-					cv2.imshow("Image", blank_image)
-					cv2.waitKey(0)
-				'''
+
+
+				#for edge in edges:
+					#cv2.line(blank_image, (edge.u.x,edge.u.y), (edge.v.x, edge.v.y), (255, 0, 0), 3)
+					#cv2.imshow("Image", blank_image)
+					#cv2.waitKey(0)
+
 		else:
 
 			# Draw the panel for the next phase
 			cv2.rectangle(blank_image, (x,y), (x+w, y+h), (0, 255, 0), -1)
+			#cv2.waitKey(0)
 
 		#cv2.drawContours(blank_image, [approx], -1, (255,255,0), 3)
 
 
 		#nodes = getNodesFromContour(approx)
-
-		'''
-			w = 4
-			h = 4
-			x = (n.x / 15) * 15
-			y = (n.y / 15) * 15
-			cv2.rectangle(blank_image, (x,y), (x+w, y+h), (255, 0, 0), -1)
-			#cv2.imshow("Image", blank_image)
-			#cv2.waitKey(0)
-		'''
 
 		'''
 		# Subdivision
@@ -402,6 +407,8 @@ def extractComicPanels(resized, thresh, ratio, iter, isBright):
 	gray = cv2.cvtColor(blank_image, cv2.COLOR_BGR2GRAY)
 	thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)[1]
 
+	thresh = cv2.dilate(thresh,kernel,iterations = iter)
+
 	if debug:
 		cv2.imshow("Image", thresh)
 		cv2.waitKey(0)
@@ -425,7 +432,8 @@ def extractComicPanels(resized, thresh, ratio, iter, isBright):
 	# Assuming we can have very thin panels, this seems to be the best
 	# amount that would allow for comfortable read.
 
-	minAllowedPanelSize = (originalH * originalW) / MAX_PANELS_IN_PAGE
+ 	print largePanelArea
+	minAllowedPanelSize = ((originalH * originalW) - (largePanelArea * ratio * ratio) ) / MAX_PANELS_IN_PAGE
 
 	# loop over the contours
 	for component in zip(cnts, hierarchy):
@@ -472,7 +480,9 @@ def extractComicPanels(resized, thresh, ratio, iter, isBright):
 
 		# Remove frames that are too small since they are probably not frames
 		frameArea = w * h;
+		# TODO Adjust minAllowed area by taking into account if a valid large panel was accepted
 		if frameArea < minAllowedPanelSize:
+			print 'Skipping Panel - Allowed Area:' + str(minAllowedPanelSize) + ' - ' + str(frameArea)
 			continue
 
 		rect = (x,y, w, h)
@@ -590,15 +600,88 @@ def processComicPanelsFromDir(comicDirPath, dest):
 			print filename
 			processComicPanel(os.path.join(comicDirPath, filename), dest)
 
+'''
+Crops panels and saves them on the destination
+'''
+def cropPanels(metadataPath, destDir):
+	# TODO Load metadata file
+	with open(metadataPath) as jsonFile:
+		metadata = json.load(jsonFile)
+
+	imageDir = os.path.dirname(metadataPath)
+ 	print metadata
+	imageFilename = ''
+
+	if metadata['version'] > 1:
+		imageFilename = metadata['imagePath']
+	else:
+		# TODO Get image from path ?
+		pass
+
+	loadedImage = cv2.imread(os.path.join(imageDir, imageFilename))
+
+	# For every panel crop panels
+	panels = metadata['panels']
+	for index, panel in enumerate(panels):
+		box = panel['box']
+		x = int(box['x'])
+		y = int(box['y'])
+		w = int(box['w'])
+		h = int(box['h'])
+		print box
+		panelImg = loadedImage[y: y + h, x: x + w]
+		if debug:
+			cv2.imshow("Panel", panelImg)
+			cv2.waitKey(0)
+		# Save every panel under filename_panelIndex.imageExtension
+		filename, ext = os.path.splitext(imageFilename)
+		outFile = filename + '_'+str(index).zfill(3) + ext
+		outPath = os.path.join(destDir, outFile)
+		print outPath
+		cv2.imwrite(outPath,panelImg)
+	pass
+
+'''
+Function to extract all the panels from every comic page in the
+given directory. This will load the metadata file for the
+panels recognized using the panel recognizer and extract
+each of them into its own image file
+'''
+def cropPanelsFromDit(metadataDirPath, destDir):
+	#for root, dirs, files in os.walk(metadataPathDir):
+		for file in os.listdir(metadataDirPath):
+			filePath = os.path.join(metadataDirPath, file)
+			if not os.path.isfile(filePath):
+				continue
+			#absolutePath = os.path.abspath(file)
+			filename, ext = os.path.splitext(file)
+			#print filename + " " + ext
+
+			if ext == '.cpanel':
+				print filename + " " + ext
+				print filePath
+				cropPanels(filePath, destDir)
+				pass
+
+
 if __name__ == '__main__':
 
 	# construct the argument parse and parse the arguments
 	ap = argparse.ArgumentParser()
 	ap.add_argument("-i", "--image", required=False,
-		help="path to the input image")
+		help="path to the input image to recognize patterns")
 
 	ap.add_argument("-d", "--image_dir", required=False,
-		help="path to the input image directory")
+		help="path to the input directory of images to recognize patterns")
+
+	ap.add_argument("-c", "--metadata", required=False,
+	 	help="path to the metadata to use for cropping panels")
+
+	ap.add_argument("-x", "--metadata_dir", required=False,
+ 		help="path to the metadata dir to use for cropping panels")
+
+	ap.add_argument("-s", "--store_dir", required=False,
+		help="path where to store the output of commands")
 
 	ap.add_argument("-v", "--verbose", required=False, action='store_true',
 		help="Show debug images")
@@ -609,25 +692,17 @@ if __name__ == '__main__':
 	debug = args["verbose"]
 
 	if args["image"] is not None:
-
 		processComicPanel(args["image"], "")
-		'''
-		image = cv2.imread(args["image"])
-
-		comicPanels = findComicPanels(image)
-
-		for panelInfo in comicPanels:
-			x,y, w, h = panelInfo[0]
-			cv2.rectangle(image, (x,y), (x+w, y+h), (0, 255, 0), 2)
-
-			#cv2.imshow("Image", image)
-			#cv2.waitKey(0)
-
-		outPath = "res_"+ntpath.basename(args["image"])
-
-		print outPath
-		cv2.imwrite(outPath,image)
-		'''
 
 	if args["image_dir"] is not None:
 		processComicPanelsFromDir(args["image_dir"], "")
+
+	if args["metadata"] is not None:
+		metadataPath = args["metadata"]
+		outPath = args['store_dir']
+		cropPanels(metadataPath, outPath)
+
+	if args["metadata_dir"] is not None:
+		metadataDir = args["metadata_dir"]
+		outPath = args['store_dir']
+		cropPanelsFromDit(metadataDir, outPath)

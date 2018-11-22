@@ -292,8 +292,8 @@
         width: box.w,
         height: box.h
       });
-      rect.borderColor = 'gray';
-      rect.cornerColor = 'black';
+      rect.borderColor = 'red';
+      rect.cornerColor = 'red';
 
       rect.opacity=0.5;
       rect.lockRotation = true;
@@ -347,13 +347,22 @@ function updateComicData(comicMetadataInfo, canvas)
     }
     return parseFloat(prop, 10);
   };
-
+  maxHeight = 0;
+  maxWidth = 0;
   canvas.forEachObject(function(obj)
   {
     var objId = obj.get('id');
 
     if(objId == 'comic_panel')
     {
+      currentObjWidth = obj.get('width'),
+      currentObjHeight = obj.get('height'),
+      currentObjScaleX = obj.get('scaleX'),
+      currentObjScaleY = obj.get('scaleY'),
+      scaledObjScaleX = scaleIt(currentObjScaleX),
+      scaledObjScaleY = scaleIt(currentObjScaleY);
+      maxHeight = parseInt(currentObjHeight * scaledObjScaleY);
+      maxWidth = parseInt(currentObjWidth * scaledObjScaleX);
       return;
     }
     console.log(obj);
@@ -369,11 +378,31 @@ function updateComicData(comicMetadataInfo, canvas)
 
 
     var boxData = {
-      x: currentObjLeft,
-      y: currentObjTop,
-      w: currentObjWidth * scaledObjScaleX,
-      h: currentObjHeight * scaledObjScaleY
+      x: parseInt(currentObjLeft),
+      y: parseInt(currentObjTop),
+      w: parseInt(currentObjWidth * scaledObjScaleX),
+      h: parseInt(currentObjHeight * scaledObjScaleY)
     };
+
+    if (boxData.x < 0)
+    {
+      boxData.x = 0;
+    }
+
+    if(boxData.y < 0)
+    {
+      boxData.y = 0;
+    }
+
+    if(boxData.w > maxWidth)
+    {
+      boxData.w = maxWidth;
+    }
+
+    if(boxData.h > maxHeight)
+    {
+      boxData.h = maxHeight;
+    }
 
     // Shapes not supported yet.
     shapeData = [];
@@ -514,8 +543,8 @@ canvas.on('mouse:down', function(o){
       fill: 'rgba(255,0,0,0.5)',
       //transparentCorners: false
     });
-    rect.borderColor = 'gray';
-    rect.cornerColor = 'black';
+    rect.borderColor = 'green';
+    rect.cornerColor = 'green';
     rect.lockRotation = true;
     rect.selectable = true;
     rect.hasControls = true;
