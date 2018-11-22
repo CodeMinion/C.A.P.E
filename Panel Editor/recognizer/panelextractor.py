@@ -163,7 +163,7 @@ def findComicPanels(image):
 	#comicPanles = comicPanels.reverse()
 	# Enhanced for sorting Manga.
 	# Sort the panels from left ot right
-	comicPanels = sorted(comicPanels, key=attrgetter('y','x'))
+	comicPanels = sorted(comicPanels, key=attrgetter('gridY','gridX'))
 
 	return comicPanels
 
@@ -487,7 +487,10 @@ def extractComicPanels(resized, thresh, ratio, iter, isBright):
 
 		rect = (x,y, w, h)
 
-		panelShapes.append(ComicPanel(rect, c))
+		comicPanel = ComicPanel(rect, c)
+		comicPanel.setPageWidth(originalW)
+		comicPanel.setPageHeight(originalH)
+		panelShapes.append(comicPanel)
 
 	print len(panelShapes)
 
